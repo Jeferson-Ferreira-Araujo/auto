@@ -178,7 +178,7 @@ Para simular o cron real, rode `npm run cron:publish` num loop a cada minuto
 
 ## 7. Deploy na Vercel
 
-> **Produção atual:** https://auto-iota-pink.vercel.app
+> **Produção atual:** https://automidia.vercel.app
 > Repositório: https://github.com/Jeferson-Ferreira-Araujo/auto (todo `git push` na `main` redeploya).
 >
 > **Limite do plano Hobby:** máximo **12 Serverless Functions** por deploy. As rotas já foram
