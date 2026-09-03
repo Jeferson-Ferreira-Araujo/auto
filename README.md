@@ -154,6 +154,36 @@ confirmação; credenciais só em env.
 
 ---
 
+## 4c. Melhoria automática de vídeo para Reels (opcional)
+
+O usuário envia um vídeo simples e a AUTOMIDIA gera uma versão 9:16 pronta para Reels (fade, zoom
+suave, cor, loudnorm, logo/título opcionais). Presets: **Natural / Dinâmico / Promoção / Elegante**
+ou **"Melhorar automaticamente"**. O original **nunca é apagado**; o processado fica ao lado e o
+usuário escolhe qual publicar (`publishVariant`, default `ORIGINAL`).
+
+**FFmpeg roda no GitHub Actions** (`.github/workflows/video-enhance.yml` + `scripts/video-worker/`):
+a app cria um `VideoJob(PENDING)` e chama `repository_dispatch`; o runner (FFmpeg nativo) processa,
+sobe o resultado no R2 e marca `COMPLETED`. Fallback: `schedule` do workflow + `/api/cron?job=video-recover`.
+
+**GitHub → Settings → Secrets and variables → Actions → New repository secret:**
+| Secret | Valor |
+|---|---|
+| `WORKER_DB_URL` | Supabase → Connect → **Direct connection** (porta 5432, com a senha) |
+| `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` `R2_BUCKET` `R2_ENDPOINT` | mesmos valores do `.env` |
+
+**App (`.env` / Vercel):**
+| Var | Valor |
+|---|---|
+| `GITHUB_REPO` | `owner/repo` (ex.: `Jeferson-Ferreira-Araujo/auto`) |
+| `GITHUB_DISPATCH_TOKEN` | PAT clássico com escopo `repo` (Settings → Developer settings → Personal access tokens) |
+
+**Custo:** GitHub Actions em repo privado = 2000 min/mês grátis (~1000+ vídeos); limite de gasto $0
+por padrão (nunca cobra — só pausa). Repo público = ilimitado.
+
+**Logo da empresa:** enviar em *Configurações → Logo da empresa*. Usado quando "Incluir logo" é marcado.
+
+---
+
 ## 5. Variáveis de ambiente
 
 Copie `.env.example` para `.env` e preencha. Gere os segredos:
