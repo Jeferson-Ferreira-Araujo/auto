@@ -41,6 +41,9 @@ export default async function BibliotecaPage() {
     height: a.height,
     duration: a.duration,
     createdAt: a.createdAt.toISOString(),
+    publishVariant: a.publishVariant,
+    hasEnhanced: Boolean(a.enhancedStorageKey),
+    activeVideoJobId: a.activeVideoJobId,
   }));
 
   return (
@@ -48,7 +51,7 @@ export default async function BibliotecaPage() {
       <PageHeader title="Biblioteca" description={`${items.length} mídia(s) · limite de ${org.mediaLimit}`} />
       <div className="space-y-6">
         <Uploader />
-        <LibraryClient items={items} categories={categories} />
+        <LibraryClient items={items} categories={categories} orgHasLogo={Boolean(org.logoStorageKey)} />
       </div>
     </>
   );

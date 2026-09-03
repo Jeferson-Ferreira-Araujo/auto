@@ -2,6 +2,7 @@ import { Prisma, type ScheduledPost } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { childLogger } from "@/lib/logger";
 import { presignGet } from "@/lib/storage/r2";
+import { publishKeys } from "@/lib/media/variant";
 import { InstagramService } from "@/lib/instagram/service";
 import { getValidAccessToken, markAccountExpired } from "@/lib/instagram/account";
 import { InstagramApiError, isAuthError } from "@/lib/instagram/errors";
@@ -99,8 +100,8 @@ async function publishOne(id: string): Promise<OneOutcome> {
   try {
     const token = await getValidAccessToken(post.instagramAccount);
     const igUserId = post.instagramAccount.igUserId;
-    const key = post.mediaAsset.processedStorageKey ?? post.mediaAsset.storageKey;
-    const mediaUrl = await presignGet(key, 7200);
+    const { mediaKey } = publishKeys(post.mediaAsset);
+    const mediaUrl = await presignGet(mediaKey, 7200);
     const caption = post.caption ?? post.mediaAsset.caption ?? undefined;
 
     // 1. Container (reutiliza se já existir).

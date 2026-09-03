@@ -4,6 +4,7 @@ import { toErrorResponse, validation } from "@/lib/errors";
 import { runGenerate } from "@/lib/scheduler/generate";
 import { runPublish } from "@/lib/scheduler/publish";
 import { runRefreshTokens } from "@/lib/scheduler/refresh-tokens";
+import { VideoProcessingService } from "@/lib/video/service";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,8 +24,10 @@ async function handle(req: NextRequest) {
         return NextResponse.json({ ok: true, job, ...(await runPublish()) });
       case "refresh-tokens":
         return NextResponse.json({ ok: true, job, ...(await runRefreshTokens()) });
+      case "video-recover":
+        return NextResponse.json({ ok: true, job, ...(await VideoProcessingService.retryStuck()) });
       default:
-        throw validation("Parâmetro ?job inválido (use generate | publish | refresh-tokens).");
+        throw validation("Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover).");
     }
   } catch (err) {
     return toErrorResponse(err);

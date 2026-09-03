@@ -65,6 +65,7 @@ BEGIN
   RETURN req_id;
 END $$;
 
-SELECT cron.schedule('instapub_generate',       '*/15 * * * *', $$SELECT private.call_cron('generate')$$);
-SELECT cron.schedule('instapub_publish',        '* * * * *',    $$SELECT private.call_cron('publish')$$);
-SELECT cron.schedule('instapub_refresh_tokens', '0 6 * * *',    $$SELECT private.call_cron('refresh-tokens')$$);
+SELECT cron.schedule('instapub_generate',        '*/15 * * * *', $$SELECT private.call_cron('generate')$$);
+SELECT cron.schedule('instapub_publish',         '* * * * *',    $$SELECT private.call_cron('publish')$$);
+SELECT cron.schedule('instapub_refresh_tokens',  '0 6 * * *',    $$SELECT private.call_cron('refresh-tokens')$$);
+SELECT cron.schedule('automidia_video_recover',  '*/10 * * * *', $$SELECT private.call_cron('video-recover')$$);

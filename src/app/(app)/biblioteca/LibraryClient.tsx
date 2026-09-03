@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { mediaUrl, formatDateTime } from "@/lib/display";
 import { deleteMedia, updateMedia, reprocessMedia } from "./actions";
+import { VideoEnhancer } from "./VideoEnhancer";
 
 export type MediaItem = {
   id: string;
@@ -28,12 +29,23 @@ export type MediaItem = {
   height: number | null;
   duration: number | null;
   createdAt: string;
+  publishVariant: "ORIGINAL" | "ENHANCED";
+  hasEnhanced: boolean;
+  activeVideoJobId: string | null;
 };
 
 type Category = { id: string; name: string };
 type Filter = "all" | "image" | "video" | "active" | "inactive" | "expired";
 
-export function LibraryClient({ items, categories }: { items: MediaItem[]; categories: Category[] }) {
+export function LibraryClient({
+  items,
+  categories,
+  orgHasLogo,
+}: {
+  items: MediaItem[];
+  categories: Category[];
+  orgHasLogo: boolean;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   const [categoryId, setCategoryId] = useState<string>("");
   const [editing, setEditing] = useState<MediaItem | null>(null);
@@ -103,7 +115,12 @@ export function LibraryClient({ items, categories }: { items: MediaItem[]; categ
       )}
 
       {editing && (
-        <EditModal item={editing} categories={categories} onClose={() => setEditing(null)} />
+        <EditModal
+          item={editing}
+          categories={categories}
+          orgHasLogo={orgHasLogo}
+          onClose={() => setEditing(null)}
+        />
       )}
     </div>
   );
@@ -144,10 +161,12 @@ function toDateInput(iso: string | null): string {
 function EditModal({
   item,
   categories,
+  orgHasLogo,
   onClose,
 }: {
   item: MediaItem;
   categories: Category[];
+  orgHasLogo: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -235,6 +254,10 @@ function EditModal({
           )}
           {item.processingNote && item.processingStatus === "READY" && (
             <p className="mt-2 rounded bg-blue-50 p-2 text-xs text-blue-800">{item.processingNote}</p>
+          )}
+
+          {item.type === "VIDEO" && item.processingStatus === "READY" && (
+            <VideoEnhancer item={item} orgHasLogo={orgHasLogo} onChanged={() => router.refresh()} />
           )}
         </div>
 

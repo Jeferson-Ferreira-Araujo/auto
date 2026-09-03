@@ -6,6 +6,7 @@ import { AutoPublishToggle } from "@/components/AutoPublishToggle";
 import { whatsappConfigured, whatsappTestNumber } from "@/lib/whatsapp/service";
 import { SettingsForm } from "./SettingsForm";
 import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
+import { LogoUpload } from "./LogoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,8 @@ export default async function ConfiguracoesPage() {
         <AutoPublishToggle status={org.autoPublishStatus} />
 
         <SettingsForm name={org.name} uploadLimitMb={org.uploadLimitMb} />
+
+        <LogoUpload hasLogo={Boolean(org.logoStorageKey)} />
 
         <WhatsAppCard state={whatsappState} />
 

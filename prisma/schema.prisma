@@ -79,6 +79,25 @@ enum PublicationPhase {
   PUBLISH
 }
 
+enum VideoPreset {
+  NATURAL
+  DINAMICO
+  PROMOCAO
+  ELEGANTE
+}
+
+enum PublishVariant {
+  ORIGINAL
+  ENHANCED
+}
+
+enum VideoJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 // ─────────────────────────── Núcleo multiempresa ───────────────────────────
 
 /// Espelha auth.users do Supabase. id = uuid do Supabase Auth.
@@ -104,6 +123,7 @@ model Organization {
   timezone          String            @default("America/Sao_Paulo")
   uploadLimitMb     Int               @default(200)
   mediaLimit        Int               @default(500)
+  logoStorageKey    String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -115,6 +135,7 @@ model Organization {
   scheduledPosts    ScheduledPost[]
   publicationLogs   PublicationLog[]
   whatsappContacts  WhatsAppContact[]
+  videoJobs         VideoJob[]
 
   @@map("organizations")
 }
@@ -206,13 +227,22 @@ model MediaAsset {
   processingStatus    MediaProcessingStatus @default(PENDING)
   processingError     String?
   processingNote      String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+
+  // Versão melhorada para Reels (gerada pelo VideoProcessingService). Original nunca é apagado.
+  enhancedStorageKey   String?
+  enhancedThumbnailKey String?
+  enhancedDurationSec  Float?
+  publishVariant       PublishVariant @default(ORIGINAL)
+  activeVideoJobId     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   category     MediaCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   scheduledPosts ScheduledPost[]
+  videoJobs      VideoJob[]
 
   @@index([organizationId, type])
   @@index([organizationId, isActive])
@@ -270,6 +300,10 @@ model ScheduledPost {
   publishedAt          DateTime?
   /// Identifica a ocorrência da automação: "YYYY-MM-DDTHH:mm". Evita duplicidade.
   occurrenceKey        String?
+  /// Preparação p/ a Audio API da Meta (buscar/anexar áudio a Reels). Só funciona com
+  /// Facebook Login — a AUTOMIDIA usa Instagram Login, então hoje ficam sempre null.
+  reelAudioId          String?
+  reelAudioName        String?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
 
@@ -348,4 +382,39 @@ model WhatsAppEvent {
   @@index([phoneE164, createdAt])
   @@index([organizationId, createdAt])
   @@map("whatsapp_events")
+}
+
+// ─────────────────────────── Melhoria automática de vídeo (Reels) ───────────────────────────
+
+/// Job assíncrono de processamento de vídeo. Executado por um worker no GitHub Actions.
+model VideoJob {
+  id                 String         @id @default(cuid())
+  organizationId     String
+  mediaAssetId       String
+  preset             VideoPreset
+  autoMode           Boolean        @default(false)
+  titleText          String?
+  includeLogo        Boolean        @default(false)
+  status             VideoJobStatus @default(PENDING)
+  progress           Int            @default(0)
+  resultStorageKey   String?
+  resultThumbnailKey String?
+  resultDurationSec  Float?
+  resultWidth        Int?
+  resultHeight       Int?
+  errorMessage       String?
+  ffmpegSummary      String?
+  attempts           Int            @default(0)
+  dispatchedAt       DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset   @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([mediaAssetId])
+  @@map("video_jobs")
 }

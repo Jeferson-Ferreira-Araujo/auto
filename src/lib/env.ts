@@ -32,6 +32,10 @@ const serverSchema = z.object({
   /** Número de teste legível, só para exibir na tela de vínculo. Ex.: "+1 555 665 5656" */
   WHATSAPP_TEST_NUMBER: z.string().optional(),
 
+  // Worker de melhoria de vídeo (GitHub Actions). Opcional — feature inativa sem isto.
+  GITHUB_REPO: z.string().optional(), // "owner/repo"
+  GITHUB_DISPATCH_TOKEN: z.string().optional(),
+
   ENCRYPTION_KEY: z
     .string()
     .refine((v) => Buffer.from(v, "base64").length === 32, "ENCRYPTION_KEY deve ser 32 bytes em base64"),
