@@ -74,6 +74,7 @@ export async function ingestUpload(input: IngestInput) {
       duration: result.duration ?? null,
       processingStatus: result.status,
       processingError: result.error ?? null,
+      processingNote: result.note ?? null,
     },
   });
 

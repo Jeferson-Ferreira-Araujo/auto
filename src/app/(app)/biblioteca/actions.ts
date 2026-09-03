@@ -7,7 +7,8 @@ import { orgAction } from "@/lib/safe-action";
 import { notFound, validation } from "@/lib/errors";
 import { confirmUploadSchema, updateMediaSchema } from "@/lib/validation/schemas";
 import { ingestUpload } from "@/lib/media/ingest";
-import { deleteObject } from "@/lib/storage/r2";
+import { deleteObject, getObjectBytes, buildKey, putObject } from "@/lib/storage/r2";
+import { processMedia } from "@/lib/media/process";
 
 export const confirmUpload = orgAction(confirmUploadSchema, async (input, { org }) => {
   // A chave precisa pertencer à pasta da organização.
@@ -22,7 +23,12 @@ export const confirmUpload = orgAction(confirmUploadSchema, async (input, { org 
     fileSize: input.fileSize,
   });
   revalidatePath("/biblioteca");
-  return { id: asset.id, processingStatus: asset.processingStatus, processingError: asset.processingError };
+  return {
+    id: asset.id,
+    processingStatus: asset.processingStatus,
+    processingError: asset.processingError,
+    processingNote: asset.processingNote,
+  };
 });
 
 export const updateMedia = orgAction(updateMediaSchema, async (input, { org }) => {
@@ -50,6 +56,42 @@ export const updateMedia = orgAction(updateMediaSchema, async (input, { org }) =
   });
   revalidatePath("/biblioteca");
   return updated;
+});
+
+/** Reprocessa uma mídia a partir do arquivo original (útil depois de melhorias no processamento). */
+export const reprocessMedia = orgAction(z.object({ id: z.string().min(1) }), async (input, { org }) => {
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: input.id, organizationId: org.id } });
+  if (!asset) throw notFound("Mídia não encontrada");
+
+  const bytes = await getObjectBytes(asset.storageKey);
+  const result = await processMedia(asset.type, bytes);
+
+  let processedKey = asset.processedStorageKey;
+  let thumbnailKey = asset.thumbnailKey;
+  if (result.processed) {
+    processedKey = buildKey(org.id, "processed", "jpg");
+    await putObject(processedKey, result.processed.buffer, result.processed.mime);
+  }
+  if (result.thumbnail) {
+    thumbnailKey = buildKey(org.id, "thumb", "jpg");
+    await putObject(thumbnailKey, result.thumbnail, "image/jpeg");
+  }
+
+  const updated = await prisma.mediaAsset.update({
+    where: { id: asset.id },
+    data: {
+      processedStorageKey: processedKey,
+      thumbnailKey,
+      width: result.width ?? asset.width,
+      height: result.height ?? asset.height,
+      duration: result.duration ?? asset.duration,
+      processingStatus: result.status,
+      processingError: result.error ?? null,
+      processingNote: result.note ?? null,
+    },
+  });
+  revalidatePath("/biblioteca");
+  return { id: updated.id, processingStatus: updated.processingStatus };
 });
 
 export const deleteMedia = orgAction(z.object({ id: z.string().min(1) }), async (input, { org }) => {

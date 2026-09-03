@@ -203,6 +203,7 @@ model MediaAsset {
   lastPublishedAt     DateTime?
   processingStatus    MediaProcessingStatus @default(PENDING)
   processingError     String?
+  processingNote      String?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 

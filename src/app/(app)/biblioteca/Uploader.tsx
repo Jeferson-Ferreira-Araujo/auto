@@ -52,7 +52,7 @@ export function Uploader() {
       update({ status: "erro", message: res.data.processingError ?? "Mídia incompatível" });
       return;
     }
-    update({ status: "ok" });
+    update({ status: "ok", message: res.data.processingNote ?? undefined });
   }
 
   async function handleFiles(files: FileList | null) {
@@ -102,15 +102,20 @@ export function Uploader() {
       {jobs.length > 0 && (
         <ul className="mt-4 space-y-1 text-left text-sm">
           {jobs.map((j, i) => (
-            <li key={i} className="flex items-center justify-between gap-2 rounded bg-[var(--color-bg)] px-3 py-1.5">
-              <span className="truncate">{j.name}</span>
-              <span className="shrink-0 text-xs">
-                {formatBytes(j.size)} ·{" "}
-                {j.status === "ok" && <span className="text-green-700">pronto</span>}
-                {j.status === "enviando" && <span className="text-[var(--color-muted)]">enviando…</span>}
-                {j.status === "processando" && <span className="text-amber-700">processando…</span>}
-                {j.status === "erro" && <span className="text-red-700" title={j.message}>{j.message ?? "erro"}</span>}
-              </span>
+            <li key={i} className="rounded bg-[var(--color-bg)] px-3 py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate">{j.name}</span>
+                <span className="shrink-0 text-xs">
+                  {formatBytes(j.size)} ·{" "}
+                  {j.status === "ok" && <span className="text-green-700">pronto</span>}
+                  {j.status === "enviando" && <span className="text-[var(--color-muted)]">enviando…</span>}
+                  {j.status === "processando" && <span className="text-amber-700">processando…</span>}
+                  {j.status === "erro" && <span className="text-red-700" title={j.message}>{j.message ?? "erro"}</span>}
+                </span>
+              </div>
+              {j.status === "ok" && j.message && (
+                <p className="mt-0.5 text-xs text-blue-700">{j.message}</p>
+              )}
             </li>
           ))}
         </ul>

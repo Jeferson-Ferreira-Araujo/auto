@@ -7,7 +7,7 @@ import { Badge, Card, CardBody, EmptyState, Field, Input, Select, Textarea } fro
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { mediaUrl, formatDateTime } from "@/lib/display";
-import { deleteMedia, updateMedia } from "./actions";
+import { deleteMedia, updateMedia, reprocessMedia } from "./actions";
 
 export type MediaItem = {
   id: string;
@@ -23,6 +23,7 @@ export type MediaItem = {
   lastPublishedAt: string | null;
   processingStatus: "PENDING" | "READY" | "INCOMPATIBLE" | "FAILED";
   processingError: string | null;
+  processingNote: string | null;
   width: number | null;
   height: number | null;
   duration: number | null;
@@ -211,7 +212,29 @@ function EditModal({
             </div>
           </dl>
           {item.processingStatus === "INCOMPATIBLE" && (
-            <p className="mt-2 rounded bg-red-50 p-2 text-xs text-red-800">{item.processingError}</p>
+            <div className="mt-2 rounded bg-red-50 p-2 text-xs text-red-800">
+              {item.processingError}
+              {item.type === "IMAGE" && (
+                <button
+                  onClick={() =>
+                    start(async () => {
+                      const res = await reprocessMedia({ id: item.id });
+                      if (!res.ok) return toast.push(res.error.message, "error");
+                      toast.push("Mídia reprocessada", "success");
+                      onClose();
+                      router.refresh();
+                    })
+                  }
+                  className="ml-2 font-medium underline"
+                  disabled={pending}
+                >
+                  Ajustar automaticamente
+                </button>
+              )}
+            </div>
+          )}
+          {item.processingNote && item.processingStatus === "READY" && (
+            <p className="mt-2 rounded bg-blue-50 p-2 text-xs text-blue-800">{item.processingNote}</p>
           )}
         </div>
 

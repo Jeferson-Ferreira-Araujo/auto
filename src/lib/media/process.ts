@@ -6,6 +6,8 @@ import { probeVideo } from "./probe";
 export type ProcessResult = {
   status: MediaProcessingStatus;
   error?: string;
+  /** Mensagem informativa (não é erro) — ex.: "ajustamos a proporção". */
+  note?: string;
   width?: number;
   height?: number;
   duration?: number;
@@ -43,52 +45,75 @@ export async function processImage(bytes: Buffer): Promise<ProcessResult> {
   } catch {
     return { status: MediaProcessingStatus.FAILED, error: "Arquivo de imagem inválido ou corrompido." };
   }
-  const width = meta.width ?? 0;
-  const height = meta.height ?? 0;
-  if (!width || !height) {
+  if (!meta.width || !meta.height) {
     return { status: MediaProcessingStatus.FAILED, error: "Não foi possível ler as dimensões da imagem." };
   }
 
-  // Normaliza: corrige rotação EXIF, limita largura, exporta JPEG de qualidade alta.
-  const pipeline = sharp(bytes).rotate();
-  const resized = width > IMAGE.maxWidth ? pipeline.resize({ width: IMAGE.maxWidth }) : pipeline;
-  const jpeg = await resized.jpeg({ quality: 90, mozjpeg: true }).toBuffer({ resolveWithObject: true });
+  // Assa a rotação EXIF num buffer normalizado para os cálculos seguintes.
+  const norm = await sharp(bytes).rotate().toBuffer();
+  const nMeta = await sharp(norm).metadata();
+  const w = nMeta.width ?? meta.width;
+  const h = nMeta.height ?? meta.height;
+  const aspect = w / h;
 
-  const outW = jpeg.info.width;
-  const outH = jpeg.info.height;
-  const aspect = outW / outH;
+  // Decide o "canvas" alvo. O Instagram aceita de 4:5 (0.8) a 1.91:1.
+  let canvasW: number;
+  let canvasH: number;
+  let mode: "keep" | "fit";
 
-  const thumbnail = await sharp(bytes)
-    .rotate()
+  if (aspect < IMAGE.minAspect) {
+    // Muito vertical (ex.: 9:16, 3:4) → encaixa num 4:5 sem cortar nada.
+    canvasW = 1080;
+    canvasH = 1350;
+    mode = "fit";
+  } else if (aspect > IMAGE.maxAspect) {
+    // Muito panorâmica → encaixa num 1.91:1.
+    canvasW = 1080;
+    canvasH = 566;
+    mode = "fit";
+  } else {
+    // Dentro da faixa: mantém a proporção, garante largura entre 1080 e 1440.
+    canvasW = Math.min(Math.max(Math.round(w), 1080), IMAGE.maxWidth);
+    canvasH = Math.round(canvasW / aspect);
+    mode = "keep";
+  }
+
+  let processedBuf: Buffer;
+  if (mode === "keep") {
+    processedBuf = await sharp(norm)
+      .resize({ width: canvasW, height: canvasH, fit: "fill" })
+      .jpeg({ quality: 88, mozjpeg: true })
+      .toBuffer();
+  } else {
+    // Fundo: a própria imagem ampliada e desfocada preenche as bordas (sem cortar o conteúdo).
+    const bg = await sharp(norm)
+      .resize(canvasW, canvasH, { fit: "cover" })
+      .blur(40)
+      .modulate({ brightness: 0.85 })
+      .toBuffer();
+    const fg = await sharp(norm).resize(canvasW, canvasH, { fit: "inside" }).toBuffer();
+    processedBuf = await sharp(bg)
+      .composite([{ input: fg, gravity: "center" }])
+      .jpeg({ quality: 88, mozjpeg: true })
+      .toBuffer();
+  }
+
+  const outMeta = await sharp(processedBuf).metadata();
+  const thumbnail = await sharp(processedBuf)
     .resize({ width: 480, height: 480, fit: "cover" })
     .jpeg({ quality: 72 })
     .toBuffer();
 
-  if (aspect < IMAGE.minAspect || aspect > IMAGE.maxAspect) {
-    return {
-      status: MediaProcessingStatus.INCOMPATIBLE,
-      error: `Proporção ${aspect.toFixed(2)}:1 fora do permitido pelo Instagram (entre 4:5 e 1.91:1). Recorte a imagem antes de publicar.`,
-      width: outW,
-      height: outH,
-      thumbnail,
-    };
-  }
-  if (outW < IMAGE.minWidth) {
-    return {
-      status: MediaProcessingStatus.INCOMPATIBLE,
-      error: `Imagem muito pequena (${outW}px). O Instagram exige pelo menos ${IMAGE.minWidth}px de largura.`,
-      width: outW,
-      height: outH,
-      thumbnail,
-    };
-  }
-
   return {
     status: MediaProcessingStatus.READY,
-    width: outW,
-    height: outH,
-    processed: { buffer: jpeg.data, mime: "image/jpeg" },
+    width: outMeta.width,
+    height: outMeta.height,
+    processed: { buffer: processedBuf, mime: "image/jpeg" },
     thumbnail,
+    note:
+      mode === "fit"
+        ? "Ajustamos a imagem para o formato do Instagram (bordas preenchidas com um fundo desfocado)."
+        : undefined,
   };
 }
 

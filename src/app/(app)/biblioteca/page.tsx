@@ -36,6 +36,7 @@ export default async function BibliotecaPage() {
     lastPublishedAt: a.lastPublishedAt?.toISOString() ?? null,
     processingStatus: a.processingStatus,
     processingError: a.processingError,
+    processingNote: a.processingNote,
     width: a.width,
     height: a.height,
     duration: a.duration,
