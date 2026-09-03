@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Organization, OrganizationMember } from "@prisma/client";
@@ -12,8 +13,9 @@ export type SessionUser = { id: string; email: string; name: string | null };
 /**
  * Retorna o usuário autenticado e garante que exista uma linha em `users`
  * (espelho de auth.users). Lança se não houver sessão.
+ * Memoizado por request (`cache`) — chamado várias vezes por página sem custo extra.
  */
-export async function requireUser(): Promise<SessionUser> {
+export const requireUser = cache(async (): Promise<SessionUser> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -21,19 +23,22 @@ export async function requireUser(): Promise<SessionUser> {
 
   if (!user || !user.email) throw unauthenticated();
 
-  const dbUser = await prisma.user.upsert({
+  // Caminho rápido: a linha-espelho quase sempre já existe.
+  const existing = await prisma.user.findUnique({
     where: { id: user.id },
-    create: {
+    select: { id: true, email: true, name: true },
+  });
+  if (existing) return existing;
+
+  return prisma.user.create({
+    data: {
       id: user.id,
       email: user.email,
       name: (user.user_metadata?.name as string | undefined) ?? null,
     },
-    update: { email: user.email },
     select: { id: true, email: true, name: true },
   });
-
-  return dbUser;
-}
+});
 
 /** Como requireUser, mas retorna null em vez de lançar. */
 export async function getOptionalUser(): Promise<SessionUser | null> {
@@ -56,7 +61,7 @@ export type OrgContext = {
  *  2. primeira organização da qual o usuário é membro
  * Lança FORBIDDEN se o usuário não pertence a nenhuma organização.
  */
-export async function requireOrgContext(): Promise<OrgContext> {
+export const requireOrgContext = cache(async (): Promise<OrgContext> => {
   const user = await requireUser();
 
   const cookieStore = await cookies();
@@ -76,17 +81,17 @@ export async function requireOrgContext(): Promise<OrgContext> {
     memberships.find((m) => m.organizationId === preferredOrgId) ?? memberships[0];
 
   return { user, org: chosen.organization, membership: chosen };
-}
+});
 
 /** Como requireOrgContext, mas retorna null se o usuário ainda não tem empresa. */
-export async function getOptionalOrgContext(): Promise<OrgContext | null> {
+export const getOptionalOrgContext = cache(async (): Promise<OrgContext | null> => {
   try {
     return await requireOrgContext();
   } catch (err) {
     if (err instanceof AppError && err.code === "FORBIDDEN") return null;
     throw err;
   }
-}
+});
 
 /**
  * Para páginas internas: exige empresa; se não houver, manda para o /dashboard
