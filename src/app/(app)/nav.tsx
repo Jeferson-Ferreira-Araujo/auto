@@ -29,6 +29,7 @@ export function Sidebar({ orgName, paused }: { orgName: string; paused: boolean 
           <Link
             key={it.href}
             href={it.href}
+            prefetch={false}
             onClick={() => setOpen(false)}
             className={cn(
               "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm",
