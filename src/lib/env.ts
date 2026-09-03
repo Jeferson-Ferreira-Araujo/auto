@@ -22,6 +22,16 @@ const serverSchema = z.object({
   INSTAGRAM_APP_SECRET: z.string().min(1),
   INSTAGRAM_REDIRECT_URI: z.string().url(),
 
+  // WhatsApp Cloud API (opcional — a integração fica inativa se não configurado)
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(1).optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(1).optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_GRAPH_VERSION: z.string().min(2).default("v22.0"),
+  /** Número de teste legível, só para exibir na tela de vínculo. Ex.: "+1 555 665 5656" */
+  WHATSAPP_TEST_NUMBER: z.string().optional(),
+
   ENCRYPTION_KEY: z
     .string()
     .refine((v) => Buffer.from(v, "base64").length === 32, "ENCRYPTION_KEY deve ser 32 bytes em base64"),

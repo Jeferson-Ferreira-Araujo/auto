@@ -6,29 +6,17 @@ import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
 import { notFound, validation, conflict } from "@/lib/errors";
 import { manualScheduleSchema, updateScheduledPostSchema } from "@/lib/validation/schemas";
+import { createScheduledPost } from "@/lib/posts";
 
 const EDITABLE = ["DRAFT", "SCHEDULED", "FAILED"] as const;
 
 export const createManualPost = orgAction(manualScheduleSchema, async (input, { org }) => {
-  const [account, media] = await Promise.all([
-    prisma.instagramAccount.findFirst({ where: { id: input.instagramAccountId, organizationId: org.id } }),
-    prisma.mediaAsset.findFirst({ where: { id: input.mediaAssetId, organizationId: org.id } }),
-  ]);
-  if (!account) throw validation("Conta do Instagram inválida.");
-  if (account.status !== "CONNECTED") throw validation("A conta do Instagram precisa estar conectada.");
-  if (!media) throw validation("Mídia inválida.");
-  if (media.processingStatus !== "READY") throw validation("Esta mídia não está pronta para publicação.");
-
-  const post = await prisma.scheduledPost.create({
-    data: {
-      organizationId: org.id,
-      instagramAccountId: account.id,
-      mediaAssetId: media.id,
-      source: "MANUAL",
-      caption: input.caption ?? media.caption ?? null,
-      scheduledAt: input.scheduledAt,
-      status: "SCHEDULED",
-    },
+  const post = await createScheduledPost(org.id, {
+    instagramAccountId: input.instagramAccountId,
+    mediaAssetId: input.mediaAssetId,
+    caption: input.caption ?? null,
+    scheduledAt: input.scheduledAt,
+    source: "MANUAL",
   });
   revalidatePath("/calendario");
   return { id: post.id };

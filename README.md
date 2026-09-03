@@ -126,6 +126,34 @@ mensagem clara para o usuário reenviar em formato correto.
 
 ---
 
+## 4b. WhatsApp Cloud API (opcional — controle por mensagem)
+
+O dono da empresa pode comandar a NEZZA pelo WhatsApp: *pausar/ativar automações*, *"o que está
+programado para amanhã?"*, *"cancelar publicações de hoje"*, e **agendar enviando uma foto** com a
+legenda `Poste amanhã às 18h / Legenda: ...`. Toda comunicação passa por `src/lib/whatsapp/service.ts`
+(`WhatsAppService`); o parser de comandos (`src/lib/whatsapp/parser.ts`) é determinístico e fica atrás
+de uma interface (`CommandParser`) para trocar por IA depois sem reescrever a integração.
+
+**Configuração no painel da Meta:**
+1. App → **WhatsApp** → **Configuration** → **Webhook** → **Edit**:
+   - Callback URL: `https://SEU-APP.vercel.app/api/whatsapp`
+   - Verify token: o mesmo valor de `WHATSAPP_VERIFY_TOKEN`
+   - **Verify and save** (a Meta chama o `GET` na hora — precisa estar deployado com as env vars).
+2. Em **Webhook fields**, assine **`messages`**.
+3. **WhatsApp → API Setup**: em *"To"*, adicione o número pessoal que vai comandar (confirma por código).
+4. Copie o **Temporary access token** (24h) para `WHATSAPP_ACCESS_TOKEN`. Para produção, crie um
+   **System User** com token permanente (Business Settings → Users → System Users → Generate token,
+   permissões `whatsapp_business_messaging` + `whatsapp_business_management`).
+
+**Vincular o número (usuário final):** NEZZA → **Configurações → WhatsApp** → informa o número →
+recebe um código de 6 dígitos → envia o código para o número de teste → vinculado.
+
+**Segurança:** assinatura `X-Hub-Signature-256` validada em todo POST; idempotência por `wamid`
+(`WhatsAppEvent @unique`); só contatos **verificados** executam comandos; ações destrutivas pedem
+confirmação; credenciais só em env.
+
+---
+
 ## 5. Variáveis de ambiente
 
 Copie `.env.example` para `.env` e preencha. Gere os segredos:

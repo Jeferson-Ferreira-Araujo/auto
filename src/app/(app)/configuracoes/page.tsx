@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody } from "@/components/ui/primitives";
 import { AutoPublishToggle } from "@/components/AutoPublishToggle";
+import { whatsappConfigured, whatsappTestNumber } from "@/lib/whatsapp/service";
 import { SettingsForm } from "./SettingsForm";
+import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,28 @@ export default async function ConfiguracoesPage() {
 
   const mediaCount = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
 
+  const configured = whatsappConfigured();
+  const waContact = configured
+    ? await prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } })
+    : null;
+  const whatsappState: WhatsAppState = {
+    configured,
+    testNumber: configured ? whatsappTestNumber() : null,
+    contact: waContact
+      ? {
+          phoneE164: waContact.phoneE164,
+          verified: Boolean(waContact.verifiedAt),
+          verifiedAt: waContact.verifiedAt?.toISOString() ?? null,
+          code:
+            !waContact.verifiedAt &&
+            waContact.verificationExpiresAt &&
+            waContact.verificationExpiresAt > new Date()
+              ? waContact.verificationCode
+              : null,
+        }
+      : null,
+  };
+
   return (
     <>
       <PageHeader title="Configurações" description="Preferências da empresa." />
@@ -27,6 +51,8 @@ export default async function ConfiguracoesPage() {
         <AutoPublishToggle status={org.autoPublishStatus} />
 
         <SettingsForm name={org.name} uploadLimitMb={org.uploadLimitMb} />
+
+        <WhatsAppCard state={whatsappState} />
 
         <Card>
           <CardBody>
