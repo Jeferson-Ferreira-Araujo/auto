@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Organization, OrganizationMember } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -75,6 +76,26 @@ export async function requireOrgContext(): Promise<OrgContext> {
     memberships.find((m) => m.organizationId === preferredOrgId) ?? memberships[0];
 
   return { user, org: chosen.organization, membership: chosen };
+}
+
+/** Como requireOrgContext, mas retorna null se o usuário ainda não tem empresa. */
+export async function getOptionalOrgContext(): Promise<OrgContext | null> {
+  try {
+    return await requireOrgContext();
+  } catch (err) {
+    if (err instanceof AppError && err.code === "FORBIDDEN") return null;
+    throw err;
+  }
+}
+
+/**
+ * Para páginas internas: exige empresa; se não houver, manda para o /dashboard
+ * (que mostra o fluxo de primeiros passos).
+ */
+export async function requireOrgOrOnboarding(): Promise<OrgContext> {
+  const ctx = await getOptionalOrgContext();
+  if (!ctx) redirect("/dashboard");
+  return ctx;
 }
 
 /** Verifica que o usuário logado pertence à organização informada. */

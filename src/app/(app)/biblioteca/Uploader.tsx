@@ -20,7 +20,7 @@ export function Uploader() {
 
   async function uploadOne(file: File, update: (j: Partial<Job>) => void) {
     // 1. pede a URL pré-assinada
-    const presignRes = await fetch("/api/r2/presign", {
+    const presignRes = await fetch("/api/media", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileSize: file.size }),

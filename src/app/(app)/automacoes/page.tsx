@@ -1,4 +1,4 @@
-import { requireOrgContext } from "@/lib/auth";
+import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { AutomationsClient, type Automation } from "./AutomationsClient";
@@ -6,7 +6,7 @@ import { AutomationsClient, type Automation } from "./AutomationsClient";
 export const dynamic = "force-dynamic";
 
 export default async function AutomacoesPage() {
-  const { org } = await requireOrgContext();
+  const { org } = await requireOrgOrOnboarding();
 
   const [automations, accounts, categories] = await Promise.all([
     prisma.automation.findMany({

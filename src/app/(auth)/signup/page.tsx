@@ -25,7 +25,7 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name }, emailRedirectTo: `${publicEnv.appUrl}/auth/callback?next=/onboarding` },
+      options: { data: { name }, emailRedirectTo: `${publicEnv.appUrl}/auth/callback?next=/dashboard` },
     });
     setLoading(false);
     if (error) {
@@ -33,7 +33,7 @@ export default function SignupPage() {
       return;
     }
     if (data.session) {
-      router.push("/onboarding");
+      router.push("/dashboard");
       router.refresh();
     } else {
       setDone(true);

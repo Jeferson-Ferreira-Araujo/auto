@@ -2,8 +2,7 @@
 // Fonte da verdade do modelo de dados. Multiempresa: tudo pendura em Organization.
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {

@@ -42,7 +42,8 @@ ON CONFLICT (key) DO NOTHING;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
-CREATE OR REPLACE FUNCTION private.call_cron(path text)
+-- Rota única /api/cron?job=... (consolidada por causa do limite de 12 Serverless Functions no plano Hobby da Vercel).
+CREATE OR REPLACE FUNCTION private.call_cron(job text)
 RETURNS bigint
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -56,17 +57,14 @@ BEGIN
   SELECT value INTO base   FROM private.app_config WHERE key = 'app_url';
   SELECT value INTO secret FROM private.app_config WHERE key = 'cron_secret';
   SELECT net.http_post(
-    url     := base || path,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || secret
-    ),
+    url     := base || '/api/cron?job=' || job,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || secret),
     body    := '{}'::jsonb,
     timeout_milliseconds := 60000
   ) INTO req_id;
   RETURN req_id;
 END $$;
 
-SELECT cron.schedule('instapub_generate',      '*/15 * * * *', $$SELECT private.call_cron('/api/cron/generate')$$);
-SELECT cron.schedule('instapub_publish',       '* * * * *',    $$SELECT private.call_cron('/api/cron/publish')$$);
-SELECT cron.schedule('instapub_refresh_tokens','0 6 * * *',    $$SELECT private.call_cron('/api/cron/refresh-tokens')$$);
+SELECT cron.schedule('instapub_generate',       '*/15 * * * *', $$SELECT private.call_cron('generate')$$);
+SELECT cron.schedule('instapub_publish',        '* * * * *',    $$SELECT private.call_cron('publish')$$);
+SELECT cron.schedule('instapub_refresh_tokens', '0 6 * * *',    $$SELECT private.call_cron('refresh-tokens')$$);

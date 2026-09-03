@@ -5,10 +5,10 @@ import { encrypt } from "@/lib/crypto";
 import { childLogger } from "@/lib/logger";
 import { publicEnv } from "@/lib/env";
 import { InstagramService } from "@/lib/instagram/service";
+import { IG_STATE_COOKIE as STATE_COOKIE } from "@/app/(app)/instagram/constants";
 
 export const dynamic = "force-dynamic";
 
-const STATE_COOKIE = "instapub_ig_oauth";
 const log = childLogger({ mod: "instagram/callback" });
 
 function redirectTo(path: string) {

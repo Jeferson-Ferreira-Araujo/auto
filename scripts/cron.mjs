@@ -18,8 +18,10 @@ const env = Object.fromEntries(
     }),
 );
 
-const base = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-const res = await fetch(`${base}/api/cron/${job}`, {
+// Em dev o servidor roda em localhost; passe APP_URL=... para apontar para outro lugar.
+const base = process.env.APP_URL ?? "http://localhost:3000";
+void env.NEXT_PUBLIC_APP_URL;
+const res = await fetch(`${base}/api/cron?job=${job}`, {
   method: "POST",
   headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
 });

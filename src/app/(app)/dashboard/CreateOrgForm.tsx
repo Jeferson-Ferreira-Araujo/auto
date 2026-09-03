@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createOrganization } from "./actions";
+import { createOrganization } from "./org-actions";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/primitives";
 
@@ -31,7 +31,7 @@ export function CreateOrgForm() {
         setError(res.error.message);
         return;
       }
-      router.push("/onboarding");
+      router.push("/dashboard");
       router.refresh();
     });
   }

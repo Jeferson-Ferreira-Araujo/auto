@@ -1,7 +1,8 @@
-import { requireOrgContext } from "@/lib/auth";
+import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { CalendarClient, type CalPost, type PickMedia } from "./CalendarClient";
+import { HistoryView, type HistoryFilters } from "./HistoryView";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,21 @@ function monthRange(monthParam?: string) {
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<HistoryFilters & { month?: string }>;
 }) {
-  const { org } = await requireOrgContext();
+  const { org } = await requireOrgOrOnboarding();
   const sp = await searchParams;
-  const { y, m, start, end } = monthRange(sp.month);
 
+  if (sp.view === "lista") {
+    return (
+      <>
+        <PageHeader title="Histórico" description="Todas as publicações — agendadas, publicadas e com falha." />
+        <HistoryView organizationId={org.id} timezone={org.timezone} filters={sp} />
+      </>
+    );
+  }
+
+  const { y, m, start, end } = monthRange(sp.month);
   const windowStart = new Date(start.getTime() - 8 * 86400000);
   const windowEnd = new Date(end.getTime() + 8 * 86400000);
 
@@ -62,12 +72,7 @@ export default async function CalendarioPage({
     instagramMediaId: p.instagramMediaId,
   }));
 
-  const pickMedia: PickMedia[] = media.map((mm) => ({
-    id: mm.id,
-    name: mm.name,
-    type: mm.type,
-    caption: mm.caption,
-  }));
+  const pickMedia: PickMedia[] = media.map((mm) => ({ id: mm.id, name: mm.name, type: mm.type, caption: mm.caption }));
 
   return (
     <>

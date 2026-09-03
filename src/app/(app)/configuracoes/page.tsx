@@ -1,4 +1,4 @@
-import { requireOrgContext } from "@/lib/auth";
+import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody } from "@/components/ui/primitives";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dono", ADMIN: "Administrador", MEMBER: "Membro" };
 
 export default async function ConfiguracoesPage() {
-  const { org, user } = await requireOrgContext();
+  const { org, user } = await requireOrgOrOnboarding();
   const members = await prisma.organizationMember.findMany({
     where: { organizationId: org.id },
     include: { user: { select: { email: true, name: true } } },

@@ -1,9 +1,20 @@
-import { requireOrgContext } from "@/lib/auth";
+import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
 import { formatDateTime, daysUntil } from "@/lib/display";
 import { DisconnectButton } from "./DisconnectButton";
+import { startInstagramConnect } from "./actions";
+
+function ConnectButton({ label }: { label: string }) {
+  return (
+    <form action={startInstagramConnect}>
+      <button className="inline-flex h-10 items-center rounded-[var(--radius)] bg-[var(--color-primary)] px-4 text-sm font-medium text-white hover:bg-[var(--color-primary-hover)]">
+        {label}
+      </button>
+    </form>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +29,7 @@ export default async function InstagramPage({
 }: {
   searchParams: Promise<{ conectado?: string; erro?: string }>;
 }) {
-  const { org } = await requireOrgContext();
+  const { org } = await requireOrgOrOnboarding();
   const sp = await searchParams;
   const account = await prisma.instagramAccount.findUnique({ where: { organizationId: org.id } });
 
@@ -43,14 +54,7 @@ export default async function InstagramPage({
         <EmptyState
           title="Nenhuma conta conectada"
           description="Você precisa de uma conta profissional do Instagram (Comercial ou Criador de Conteúdo)."
-          action={
-            <a
-              href="/api/instagram/connect"
-              className="inline-flex h-10 items-center rounded-[var(--radius)] bg-[var(--color-primary)] px-4 text-sm font-medium text-white hover:bg-[var(--color-primary-hover)]"
-            >
-              Conectar Instagram
-            </a>
-          }
+          action={<ConnectButton label="Conectar Instagram" />}
         />
       ) : (
         <Card>
@@ -84,12 +88,7 @@ export default async function InstagramPage({
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <a
-                href="/api/instagram/connect"
-                className="inline-flex h-10 items-center rounded-[var(--radius)] border bg-[var(--color-surface)] px-4 text-sm font-medium hover:bg-[var(--color-bg)]"
-              >
-                {account.status === "CONNECTED" ? "Reconectar" : "Reconectar agora"}
-              </a>
+              <ConnectButton label={account.status === "CONNECTED" ? "Reconectar" : "Reconectar agora"} />
               <DisconnectButton />
             </div>
           </CardBody>

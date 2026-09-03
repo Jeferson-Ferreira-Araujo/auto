@@ -1,4 +1,4 @@
-import { requireOrgContext } from "@/lib/auth";
+import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Uploader } from "./Uploader";
@@ -7,7 +7,7 @@ import { LibraryClient, type MediaItem } from "./LibraryClient";
 export const dynamic = "force-dynamic";
 
 export default async function BibliotecaPage() {
-  const { org } = await requireOrgContext();
+  const { org } = await requireOrgOrOnboarding();
 
   const [assets, categories] = await Promise.all([
     prisma.mediaAsset.findMany({

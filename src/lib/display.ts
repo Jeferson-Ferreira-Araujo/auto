@@ -24,7 +24,7 @@ export const POST_STATUS_TONE: Record<
 export const WEEKDAY_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function mediaUrl(id: string, variant: "thumb" | "preview" | "original" = "thumb"): string {
-  return `/api/media/${id}/${variant}`;
+  return `/api/media?id=${encodeURIComponent(id)}&variant=${variant}`;
 }
 
 export function formatDateTime(d: Date | string, timeZone = "America/Sao_Paulo"): string {

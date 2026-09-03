@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { signOut } from "@/app/session-actions";
 
 const ITEMS = [
   { href: "/dashboard", label: "Painel", icon: "▦" },
@@ -12,7 +13,7 @@ const ITEMS = [
   { href: "/calendario", label: "Calendário", icon: "▤" },
   { href: "/automacoes", label: "Automações", icon: "↻" },
   { href: "/instagram", label: "Instagram", icon: "◎" },
-  { href: "/historico", label: "Histórico", icon: "≣" },
+  { href: "/calendario?view=lista", label: "Histórico", icon: "≣" },
   { href: "/configuracoes", label: "Configurações", icon: "⚙" },
 ];
 
@@ -56,7 +57,7 @@ export function Sidebar({ orgName, paused }: { orgName: string; paused: boolean 
       {open && (
         <div className="border-b bg-[var(--color-surface)] p-3 md:hidden">
           {nav}
-          <form action="/auth/signout" method="post" className="mt-2">
+          <form action={signOut} className="mt-2">
             <button className="w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-muted)] hover:bg-black/5">
               Sair
             </button>
@@ -76,7 +77,7 @@ export function Sidebar({ orgName, paused }: { orgName: string; paused: boolean 
           </div>
         )}
         <div className="mt-1 flex-1">{nav}</div>
-        <form action="/auth/signout" method="post">
+        <form action={signOut}>
           <button className="w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-muted)] hover:bg-black/5">
             Sair
           </button>

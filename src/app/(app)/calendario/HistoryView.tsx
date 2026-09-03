@@ -1,39 +1,42 @@
+import Link from "next/link";
 import type { Prisma, PostStatus } from "@prisma/client";
-import { requireOrgContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { PageHeader } from "@/components/ui/page-header";
-import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
+import { Badge, Card, EmptyState } from "@/components/ui/primitives";
 import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatDateTime } from "@/lib/display";
 
-export const dynamic = "force-dynamic";
-
-type SP = {
+export type HistoryFilters = {
+  view?: string;
   status?: string;
-  type?: string;
+  tipo?: string;
   categoria?: string;
   conta?: string;
   desde?: string;
   ate?: string;
 };
 
-export default async function HistoricoPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const { org } = await requireOrgContext();
-  const sp = await searchParams;
-
+export async function HistoryView({
+  organizationId,
+  timezone,
+  filters,
+}: {
+  organizationId: string;
+  timezone: string;
+  filters: HistoryFilters;
+}) {
   const [categories, accounts] = await Promise.all([
-    prisma.mediaCategory.findMany({ where: { organizationId: org.id }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    prisma.instagramAccount.findMany({ where: { organizationId: org.id }, select: { id: true, username: true } }),
+    prisma.mediaCategory.findMany({ where: { organizationId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.instagramAccount.findMany({ where: { organizationId }, select: { id: true, username: true } }),
   ]);
 
-  const where: Prisma.ScheduledPostWhereInput = { organizationId: org.id };
-  if (sp.status) where.status = sp.status as PostStatus;
-  if (sp.conta) where.instagramAccountId = sp.conta;
-  if (sp.type) where.mediaAsset = { type: sp.type as "IMAGE" | "VIDEO" };
-  if (sp.categoria) where.automation = { categoryId: sp.categoria };
-  if (sp.desde || sp.ate) {
+  const where: Prisma.ScheduledPostWhereInput = { organizationId };
+  if (filters.status) where.status = filters.status as PostStatus;
+  if (filters.conta) where.instagramAccountId = filters.conta;
+  if (filters.tipo) where.mediaAsset = { type: filters.tipo as "IMAGE" | "VIDEO" };
+  if (filters.categoria) where.automation = { categoryId: filters.categoria };
+  if (filters.desde || filters.ate) {
     where.scheduledAt = {};
-    if (sp.desde) where.scheduledAt.gte = new Date(sp.desde);
-    if (sp.ate) where.scheduledAt.lte = new Date(`${sp.ate}T23:59:59`);
+    if (filters.desde) where.scheduledAt.gte = new Date(filters.desde);
+    if (filters.ate) where.scheduledAt.lte = new Date(`${filters.ate}T23:59:59`);
   }
 
   const posts = await prisma.scheduledPost.findMany({
@@ -41,8 +44,7 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
     include: {
       mediaAsset: { select: { id: true, name: true, type: true } },
       instagramAccount: { select: { username: true } },
-      automation: { select: { name: true, category: { select: { name: true } } } },
-      _count: { select: { publicationLogs: true } },
+      automation: { select: { category: { select: { name: true } } } },
     },
     orderBy: { scheduledAt: "desc" },
     take: 200,
@@ -51,11 +53,17 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
   const field = "h-9 rounded-[var(--radius)] border bg-white px-2 text-sm";
 
   return (
-    <>
-      <PageHeader title="Histórico" description="Todas as publicações — agendadas, publicadas e com falha." />
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm">
+        <Link href="/calendario" className="rounded-full border bg-white px-3 py-1">
+          Calendário
+        </Link>
+        <span className="rounded-full bg-[var(--color-primary)] px-3 py-1 font-medium text-white">Lista / Histórico</span>
+      </div>
 
-      <form className="mb-4 flex flex-wrap gap-2">
-        <select name="status" defaultValue={sp.status ?? ""} className={field}>
+      <form className="flex flex-wrap gap-2">
+        <input type="hidden" name="view" value="lista" />
+        <select name="status" defaultValue={filters.status ?? ""} className={field}>
           <option value="">Todos os status</option>
           {(["SCHEDULED", "PROCESSING", "PUBLISHED", "FAILED", "CANCELLED", "DRAFT"] as PostStatus[]).map((s) => (
             <option key={s} value={s}>
@@ -63,12 +71,12 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
             </option>
           ))}
         </select>
-        <select name="type" defaultValue={sp.type ?? ""} className={field}>
+        <select name="tipo" defaultValue={filters.tipo ?? ""} className={field}>
           <option value="">Imagem e vídeo</option>
           <option value="IMAGE">Imagem</option>
           <option value="VIDEO">Vídeo</option>
         </select>
-        <select name="categoria" defaultValue={sp.categoria ?? ""} className={field}>
+        <select name="categoria" defaultValue={filters.categoria ?? ""} className={field}>
           <option value="">Todas as categorias</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -76,7 +84,7 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
             </option>
           ))}
         </select>
-        <select name="conta" defaultValue={sp.conta ?? ""} className={field}>
+        <select name="conta" defaultValue={filters.conta ?? ""} className={field}>
           <option value="">Todas as contas</option>
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
@@ -84,8 +92,8 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
             </option>
           ))}
         </select>
-        <input type="date" name="desde" defaultValue={sp.desde ?? ""} className={field} />
-        <input type="date" name="ate" defaultValue={sp.ate ?? ""} className={field} />
+        <input type="date" name="desde" defaultValue={filters.desde ?? ""} className={field} />
+        <input type="date" name="ate" defaultValue={filters.ate ?? ""} className={field} />
         <button className="h-9 rounded-[var(--radius)] bg-[var(--color-primary)] px-3 text-sm font-medium text-white">
           Filtrar
         </button>
@@ -106,7 +114,7 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
                   <th className="p-3">Data/hora</th>
                   <th className="p-3">Origem</th>
                   <th className="p-3">Status</th>
-                  <th className="p-3">Tentativas</th>
+                  <th className="p-3">Tent.</th>
                   <th className="p-3">Erro</th>
                 </tr>
               </thead>
@@ -117,19 +125,19 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
                       <div className="flex items-center gap-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={mediaUrl(p.mediaAsset.id, "thumb")} alt="" className="h-8 w-8 rounded object-cover" />
-                        <span className="max-w-40 truncate">{p.mediaAsset.name}</span>
+                        <span className="block max-w-40 truncate">{p.mediaAsset.name}</span>
                       </div>
                     </td>
                     <td className="p-3">{p.mediaAsset.type === "VIDEO" ? "Vídeo" : "Imagem"}</td>
                     <td className="p-3">@{p.instagramAccount.username}</td>
                     <td className="p-3">{p.automation?.category?.name ?? "—"}</td>
-                    <td className="p-3 whitespace-nowrap">{formatDateTime(p.scheduledAt, org.timezone)}</td>
+                    <td className="p-3 whitespace-nowrap">{formatDateTime(p.scheduledAt, timezone)}</td>
                     <td className="p-3">{p.source === "AUTOMATION" ? "Automática" : "Manual"}</td>
                     <td className="p-3">
                       <Badge tone={POST_STATUS_TONE[p.status]}>{POST_STATUS_LABEL[p.status]}</Badge>
                     </td>
                     <td className="p-3">{p.retryCount}</td>
-                    <td className="p-3 max-w-52 truncate text-xs text-red-700" title={p.errorMessage ?? ""}>
+                    <td className="max-w-52 truncate p-3 text-xs text-red-700" title={p.errorMessage ?? ""}>
                       {p.errorMessage ?? ""}
                     </td>
                   </tr>
@@ -139,6 +147,6 @@ export default async function HistoricoPage({ searchParams }: { searchParams: Pr
           </div>
         </Card>
       )}
-    </>
+    </div>
   );
 }
