@@ -178,6 +178,18 @@ Para simular o cron real, rode `npm run cron:publish` num loop a cada minuto
 
 ## 7. Deploy na Vercel
 
+> **Produção atual:** https://auto-iota-pink.vercel.app
+> Repositório: https://github.com/Jeferson-Ferreira-Araujo/auto (todo `git push` na `main` redeploya).
+>
+> **Limite do plano Hobby:** máximo **12 Serverless Functions** por deploy. As rotas já foram
+> consolidadas para caber (`/api/cron?job=`, `/api/media`, actions em vez de rotas). Ao adicionar
+> novas rotas dinâmicas, cuide para não passar de 12 — ou use Supabase Edge Functions / plano Pro.
+>
+> **Variáveis de ambiente:** cadastre como **plaintext** (não marque "Sensitive"). Variáveis
+> `NEXT_PUBLIC_*` sensíveis não são embutidas no build; variáveis de servidor sensíveis, neste
+> projeto, não chegaram ao runtime. Todas foram cadastradas como texto simples via `vercel env add`.
+
+
 1. Importe o repositório na Vercel.
 2. **Environment Variables**: adicione todas as do `.env` (com os valores de produção;
    `NEXT_PUBLIC_APP_URL` e `INSTAGRAM_REDIRECT_URI` com o domínio da Vercel).
