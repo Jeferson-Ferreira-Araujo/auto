@@ -4,6 +4,7 @@ import { childLogger } from "@/lib/logger";
 import { deleteObject, getObjectBytes, buildKey, putObject } from "@/lib/storage/r2";
 import { IMAGE, VIDEO } from "./constraints";
 import { processImage, processVideo, sniffMime } from "./process";
+import { friendlyMediaName } from "./naming";
 
 const log = childLogger({ mod: "media/ingest" });
 
@@ -13,6 +14,7 @@ export type IngestInput = {
   originalName: string;
   declaredMime: string;
   fileSize: number;
+  timezone?: string;
 };
 
 /**
@@ -43,7 +45,7 @@ export async function ingestUpload(input: IngestInput) {
     throw new Error(`Arquivo muito grande (${(bytes.length / 1024 / 1024).toFixed(1)} MB).`);
   }
 
-  const baseName = input.originalName.replace(/\.[^.]+$/, "").slice(0, 120) || "Sem nome";
+  const displayName = friendlyMediaName(input.originalName, type, new Date(), input.timezone);
 
   let processedKey: string | null = null;
   let thumbnailKey: string | null = null;
@@ -63,7 +65,7 @@ export async function ingestUpload(input: IngestInput) {
     data: {
       organizationId: input.organizationId,
       type,
-      name: baseName,
+      name: displayName,
       storageKey: input.storageKey,
       processedStorageKey: processedKey,
       thumbnailKey,

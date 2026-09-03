@@ -21,6 +21,7 @@ export const confirmUpload = orgAction(confirmUploadSchema, async (input, { org 
     originalName: input.originalName,
     declaredMime: input.declaredMime,
     fileSize: input.fileSize,
+    timezone: org.timezone,
   });
   revalidatePath("/biblioteca");
   return {
