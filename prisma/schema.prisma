@@ -1,0 +1,304 @@
+// Plataforma SaaS de automação de publicações no Instagram — schema.
+// Fonte da verdade do modelo de dados. Multiempresa: tudo pendura em Organization.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum AutoPublishStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum InstagramConnectionStatus {
+  CONNECTED
+  EXPIRED
+  REVOKED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum MediaProcessingStatus {
+  PENDING
+  READY
+  INCOMPATIBLE
+  FAILED
+}
+
+enum SelectionStrategy {
+  SEQUENTIAL
+  RANDOM
+  LEAST_USED
+}
+
+enum AutomationMediaType {
+  IMAGE
+  VIDEO
+  ANY
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum PostSource {
+  MANUAL
+  AUTOMATION
+}
+
+enum PublicationOutcome {
+  SUCCESS
+  ERROR
+}
+
+enum PublicationPhase {
+  CONTAINER
+  STATUS
+  PUBLISH
+}
+
+// ─────────────────────────── Núcleo multiempresa ───────────────────────────
+
+/// Espelha auth.users do Supabase. id = uuid do Supabase Auth.
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships        OrganizationMember[]
+  connectedInstagram InstagramAccount[]   @relation("InstagramConnectedBy")
+
+  @@map("users")
+}
+
+model Organization {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique
+  autoPublishStatus AutoPublishStatus @default(ACTIVE)
+  timezone          String            @default("America/Sao_Paulo")
+  uploadLimitMb     Int               @default(200)
+  mediaLimit        Int               @default(500)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  members           OrganizationMember[]
+  instagramAccounts InstagramAccount[]
+  categories        MediaCategory[]
+  mediaAssets       MediaAsset[]
+  automations       Automation[]
+  scheduledPosts    ScheduledPost[]
+  publicationLogs   PublicationLog[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String     @id @default(cuid())
+  userId         String     @db.Uuid
+  organizationId String
+  role           MemberRole @default(OWNER)
+  createdAt      DateTime   @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("organization_members")
+}
+
+// ─────────────────────────── Instagram ───────────────────────────
+
+model InstagramAccount {
+  id                String                    @id @default(cuid())
+  organizationId    String
+  igUserId          String
+  username          String
+  accountType       String?
+  profilePictureUrl String?
+  accessTokenCipher String // AES-256-GCM (iv:tag:ciphertext em base64)
+  tokenExpiresAt    DateTime
+  lastRefreshedAt   DateTime                  @default(now())
+  status            InstagramConnectionStatus @default(CONNECTED)
+  connectedByUserId String?                   @db.Uuid
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectedBy  User?        @relation("InstagramConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  automations    Automation[]
+  scheduledPosts ScheduledPost[]
+
+  // MVP: 1 conta por organização. Remover para permitir múltiplas.
+  @@unique([organizationId])
+  @@map("instagram_accounts")
+}
+
+// ─────────────────────────── Categorias ───────────────────────────
+
+model MediaCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mediaAssets  MediaAsset[]
+  automations  Automation[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("media_categories")
+}
+
+// ─────────────────────────── Biblioteca de mídia ───────────────────────────
+
+model MediaAsset {
+  id                  String                @id @default(cuid())
+  organizationId      String
+  categoryId          String?
+  type                MediaType
+  name                String
+  storageKey          String // original no R2
+  processedStorageKey String? // versão preparada p/ publicação (ex: JPEG normalizado)
+  thumbnailKey        String?
+  mimeType            String
+  fileSize            Int
+  width               Int?
+  height              Int?
+  duration            Float? // segundos (vídeo)
+  caption             String?               @db.Text
+  isActive            Boolean               @default(true)
+  availableFrom       DateTime?
+  availableUntil      DateTime?
+  usageCount          Int                   @default(0)
+  lastPublishedAt     DateTime?
+  processingStatus    MediaProcessingStatus @default(PENDING)
+  processingError     String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     MediaCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  scheduledPosts ScheduledPost[]
+
+  @@index([organizationId, type])
+  @@index([organizationId, isActive])
+  @@index([organizationId, categoryId])
+  @@map("media_assets")
+}
+
+// ─────────────────────────── Automações ───────────────────────────
+
+model Automation {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  instagramAccountId String
+  categoryId         String?
+  name               String
+  mediaType          AutomationMediaType @default(ANY)
+  selectionStrategy  SelectionStrategy   @default(LEAST_USED)
+  daysOfWeek         Int[] // 0=domingo ... 6=sábado
+  publicationTime    String // "HH:mm"
+  timezone           String              @default("America/Sao_Paulo")
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instagramAccount InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
+  category         MediaCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  scheduledPosts ScheduledPost[]
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("automations")
+}
+
+// ─────────────────────────── Publicações agendadas ───────────────────────────
+
+model ScheduledPost {
+  id                   String     @id @default(cuid())
+  organizationId       String
+  instagramAccountId   String
+  mediaAssetId         String
+  automationId         String?
+  source               PostSource @default(MANUAL)
+  caption              String?    @db.Text
+  scheduledAt          DateTime
+  status               PostStatus @default(SCHEDULED)
+  retryCount           Int        @default(0)
+  maxRetries           Int        @default(3)
+  nextAttemptAt        DateTime?
+  lockedAt             DateTime?
+  instagramContainerId String?
+  instagramMediaId     String?    @unique
+  errorMessage         String?
+  publishedAt          DateTime?
+  /// Identifica a ocorrência da automação: "YYYY-MM-DDTHH:mm". Evita duplicidade.
+  occurrenceKey        String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instagramAccount InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
+  mediaAsset       MediaAsset       @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  automation       Automation?      @relation(fields: [automationId], references: [id], onDelete: SetNull)
+
+  publicationLogs PublicationLog[]
+
+  @@unique([automationId, occurrenceKey])
+  @@index([status, scheduledAt])
+  @@index([organizationId, scheduledAt])
+  @@map("scheduled_posts")
+}
+
+model PublicationLog {
+  id              String             @id @default(cuid())
+  organizationId  String
+  scheduledPostId String
+  attempt         Int
+  outcome         PublicationOutcome
+  phase           PublicationPhase
+  message         String?
+  metaResponse    Json?
+  createdAt       DateTime           @default(now())
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scheduledPost ScheduledPost @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledPostId])
+  @@index([organizationId, createdAt])
+  @@map("publication_logs")
+}
