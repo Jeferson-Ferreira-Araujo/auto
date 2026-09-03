@@ -32,6 +32,7 @@ export function VideoEnhancer({
   const [title, setTitle] = useState("");
   const [includeLogo, setIncludeLogo] = useState(false);
   const [job, setJob] = useState<JobState>(null);
+  const [variant, setVariant] = useState<"ORIGINAL" | "ENHANCED">(item.publishVariant);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Poll enquanto o job estiver ativo.
@@ -70,11 +71,16 @@ export function VideoEnhancer({
     });
   }
 
-  function chooseVariant(variant: "ORIGINAL" | "ENHANCED") {
+  function chooseVariant(next: "ORIGINAL" | "ENHANCED") {
+    const prev = variant;
+    setVariant(next);
     start(async () => {
-      const res = await setVideoVariant({ mediaAssetId: item.id, variant });
-      if (!res.ok) return toast.push(res.error.message, "error");
-      toast.push(variant === "ENHANCED" ? "Vai publicar a versão melhorada." : "Vai publicar o original.", "success");
+      const res = await setVideoVariant({ mediaAssetId: item.id, variant: next });
+      if (!res.ok) {
+        setVariant(prev);
+        return toast.push(res.error.message, "error");
+      }
+      toast.push(next === "ENHANCED" ? "Vai publicar a versão melhorada." : "Vai publicar o original.", "success");
       onChanged();
     });
   }
@@ -116,7 +122,7 @@ export function VideoEnhancer({
             <label className="flex items-center gap-1">
               <input
                 type="radio"
-                checked={item.publishVariant === "ORIGINAL"}
+                checked={variant === "ORIGINAL"}
                 onChange={() => chooseVariant("ORIGINAL")}
                 disabled={pending}
               />
@@ -125,7 +131,7 @@ export function VideoEnhancer({
             <label className="flex items-center gap-1">
               <input
                 type="radio"
-                checked={item.publishVariant === "ENHANCED"}
+                checked={variant === "ENHANCED"}
                 onChange={() => chooseVariant("ENHANCED")}
                 disabled={pending}
               />
