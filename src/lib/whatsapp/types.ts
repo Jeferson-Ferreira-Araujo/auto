@@ -38,9 +38,10 @@ export type ParsedCommand =
   | { kind: "CANCEL_ONE"; day: "today" | "tomorrow"; hhmm: string | null }
   | { kind: "RESCHEDULE"; fromHhmm: string | null; day: "today" | "tomorrow"; to: Date | null }
   | { kind: "SCHEDULE_POST"; scheduledAt: Date | null; caption: string | null }
+  | { kind: "SCHEDULE_FROM_CATEGORY"; terms: string[]; scheduledAt: Date | null; caption: string | null }
   | { kind: "PUBLISH_NOW" }
   | { kind: "SAVE_TO_LIBRARY" }
-  | { kind: "SET_CATEGORY"; name: string }
+  | { kind: "SET_CATEGORY"; terms: string[] }
   | { kind: "LIST_CATEGORIES" }
   | { kind: "TOGGLE_MEDIA"; active: boolean }
   | { kind: "ENHANCE_VIDEO" }

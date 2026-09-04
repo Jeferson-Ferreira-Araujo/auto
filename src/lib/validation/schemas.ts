@@ -8,12 +8,18 @@ export const createOrganizationSchema = z.object({
 
 export const categorySchema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(40),
+  parentId: z.string().min(1).nullable().optional(),
 });
 
 export const updateCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(2).max(40).optional(),
   isActive: z.boolean().optional(),
+});
+
+export const deleteCategorySchema = z.object({
+  id: z.string().min(1),
+  withChildren: z.boolean().optional(),
 });
 
 const ALL_UPLOAD_MIMES = [...IMAGE.acceptedUploadMimes, ...VIDEO.acceptedUploadMimes] as const;

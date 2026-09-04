@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { childLogger } from "@/lib/logger";
 import { createScheduledPost, rescheduleScheduledPost, cancelScheduledPostById, findEditablePostsInRange } from "@/lib/posts";
 import { setAutomationActive, findAutomationByName } from "@/lib/automations";
+import { loadCategoryTree, resolveCategoryPath, formatPath } from "@/lib/categories";
+import { eligibleMedia, pickByStrategy } from "@/lib/scheduler/selection";
 import { VideoProcessingService } from "@/lib/video/service";
 import { InstagramInsightsService } from "@/lib/instagram/insights";
 import { resolveRange } from "@/lib/insights/range";
@@ -14,6 +16,7 @@ import {
   countTodayCancellable,
   pauseAutomations,
   resumeAutomations,
+  categoryTreeText,
   HELP_TEXT,
 } from "./commands";
 import { describeWhen } from "./dates";
@@ -101,14 +104,11 @@ async function accountStatusText(org: Organization): Promise<string> {
   ].join("\n");
 }
 
-async function listCategoriesText(org: Organization): Promise<string> {
-  const cats = await prisma.mediaCategory.findMany({
-    where: { organizationId: org.id },
-    orderBy: { name: "asc" },
-    select: { name: true, isActive: true },
-  });
-  if (cats.length === 0) return "Nenhuma categoria criada ainda. Crie no painel (Categorias).";
-  return "🗂️ Categorias:\n" + cats.map((c) => `• ${c.name}${c.isActive ? "" : " _(inativa)_"}`).join("\n");
+/** Resolve termos livres num nó da árvore de categorias da org. */
+async function resolveCat(orgId: string, terms: string[]) {
+  const tree = await loadCategoryTree(orgId);
+  const res = resolveCategoryPath(tree, terms);
+  return { tree, res };
 }
 
 // ─────────────────────────── executor ───────────────────────────
@@ -147,7 +147,44 @@ export async function executeCommand(
       return text(await listScheduled(org, parsed.day));
 
     case "LIST_CATEGORIES":
-      return text(await listCategoriesText(org));
+      return text(await categoryTreeText(org));
+
+    case "SCHEDULE_FROM_CATEGORY": {
+      const { tree, res } = await resolveCat(org.id, parsed.terms);
+      if (!res) {
+        return text(`Não achei a categoria «${parsed.terms.join(" ")}».\n\n${await categoryTreeText(org)}`);
+      }
+      if ("ambiguous" in res) {
+        const opts = res.ambiguous.map((n) => `• ${formatPath(n.path)}`).join("\n");
+        return text(`Encontrei mais de uma opção para «${parsed.terms.join(" ")}»:\n${opts}\n\nEspecifique melhor.`);
+      }
+      const node = res.node;
+      const onDate = parsed.scheduledAt ?? new Date();
+      const media = await eligibleMedia({ organizationId: org.id, categoryId: node.id, mediaType: "ANY", onDate });
+      const chosen = pickByStrategy(media, "LEAST_USED", 0);
+      if (!chosen) {
+        const withMedia = tree.filter((n) => n.mediaCount > 0 && n.path.join(">").startsWith(node.path.slice(0, -1).join(">")));
+        const hint = withMedia.length ? `\n\nVocê tem mídia em:\n${withMedia.map((n) => `• ${formatPath(n.path)}`).join("\n")}` : "";
+        return text(`Não achei nenhuma mídia em *${formatPath(node.path)}*.${hint}`);
+      }
+      if (parsed.scheduledAt) {
+        try {
+          await createScheduledPost(org.id, {
+            mediaAssetId: chosen.id,
+            scheduledAt: parsed.scheduledAt,
+            caption: parsed.caption,
+            source: "MANUAL",
+          });
+          return text(`✅ Agendei *${chosen.name}* (${formatPath(node.path)}) para *${describeWhen(parsed.scheduledAt, tz)}*.`);
+        } catch (err) {
+          return text(`❌ Não consegui agendar: ${err instanceof Error ? err.message : "erro"}`);
+        }
+      }
+      return {
+        result: { kind: "text", text: `Achei *${chosen.name}* em ${formatPath(node.path)}. Quando devo publicar? (ex.: *amanhã às 18h*)` },
+        pending: { type: "SCHEDULE_WITH_MEDIA", mediaAssetId: chosen.id, caption: parsed.caption },
+      };
+    }
 
     case "ACCOUNT_STATUS":
       return text(await accountStatusText(org));
@@ -278,14 +315,15 @@ export async function executeCommand(
     case "SET_CATEGORY": {
       const media = await lastMedia(contact);
       if (!media) return text("Me envie a foto ou vídeo primeiro e depois diga a categoria.");
-      const cat = await prisma.mediaCategory.findFirst({
-        where: { organizationId: org.id, name: { contains: parsed.name.trim(), mode: "insensitive" } },
-      });
-      if (!cat) {
-        return text(`Não achei a categoria *${parsed.name}*.\n\n${await listCategoriesText(org)}`);
+      const { res } = await resolveCat(org.id, parsed.terms);
+      if (!res) return text(`Não achei a categoria «${parsed.terms.join(" ")}».\n\n${await categoryTreeText(org)}`);
+      if ("ambiguous" in res) {
+        return text(
+          `Mais de uma opção para «${parsed.terms.join(" ")}»:\n${res.ambiguous.map((n) => `• ${formatPath(n.path)}`).join("\n")}\nEspecifique melhor.`,
+        );
       }
-      await prisma.mediaAsset.update({ where: { id: media.id }, data: { categoryId: cat.id } });
-      return text(`✅ *${media.name}* agora está na categoria *${cat.name}*.`);
+      await prisma.mediaAsset.update({ where: { id: media.id }, data: { categoryId: res.node.id } });
+      return text(`✅ *${media.name}* agora está em *${formatPath(res.node.path)}*.`);
     }
 
     case "TOGGLE_MEDIA": {

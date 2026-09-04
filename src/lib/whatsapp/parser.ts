@@ -30,6 +30,35 @@ function extractCaption(rawText: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+/** Divide "pizza de frango" / "Produtos › Pizzas › Frango" em termos. */
+function splitTerms(s: string): string[] {
+  return norm(s)
+    .split(/\s*(?:›|>|\/|\bde\b|\bda\b|\bdo\b|\be\b|,)\s*|\s+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2 && !/^(a|o|os|as|um|uma)$/.test(x));
+}
+
+/** Extrai os termos de "conteúdo" de um pedido de publicação (remove verbos, data/hora, stopwords). */
+function extractContentTerms(raw: string): string[] {
+  let s = norm(raw).replace(/(?:^|\n)\s*(?:legenda|caption|texto)\s*:[\s\S]+$/i, " ");
+  const drop = [
+    /\b(poste|postar|publique|publicar|publica|agende|agendar|agenda|crie|criar|cria|faca|fazer|faz|monte|montar|prepare|preparar|marque|marcar|programe|programar|quero|gostaria)\b/g,
+    /\b(um|uma|o|a|os|as|de|da|do|dos|das|e|com|pra|para|pro|no|na|nos|nas|em|nesse|nessa|esse|essa|isso|meu|minha)\b/g,
+    /\b(post|postagem|postagens|publicacao|publicacoes|conteudo|nova|novo|foto|imagem|video|reels?)\b/g,
+    /\b(hoje|amanha|depois de amanha|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|feira)\b/g,
+    /\b(?:as|às)\s*\d{1,2}(?:[:h]\d{0,2})?\b/g,
+    /\b\d{1,2}\s*[:h]\s*\d{0,2}\b/g,
+    /\bdia\s+\d{1,2}\b/g,
+    /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g,
+    /\bmeio[\s-]?dia\b|\bmeia[\s-]?noite\b/g,
+  ];
+  for (const r of drop) s = s.replace(r, " ");
+  return s
+    .split(/[^a-z0-9]+/i)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2);
+}
+
 /** Nome de automação após "automação X", "a X", "pause X", etc. */
 function extractName(raw: string): string {
   return raw
@@ -125,8 +154,11 @@ export class DeterministicParser implements CommandParser {
     }
     const catMatch = raw.match(/\bcategoria\s+([^\n.!?]+)/i) || raw.match(/\bna\s+([^\n.!?]+?)\s*$/i);
     if (catMatch && /\b(salve|salvar|guarde|guardar|categoria|mova|mover|classific|adicione? (a|na))\b/.test(t)) {
-      const name = catMatch[1].trim();
-      if (name && !/biblioteca/i.test(name)) return { kind: "SET_CATEGORY", name };
+      const rawName = catMatch[1].trim();
+      if (rawName && !/biblioteca/i.test(rawName)) {
+        const terms = splitTerms(rawName);
+        if (terms.length) return { kind: "SET_CATEGORY", terms };
+      }
     }
 
     // ── Ativar/desativar mídia ──
@@ -183,13 +215,20 @@ export class DeterministicParser implements CommandParser {
 
     // ── Publicar / agendar ──
     const publishIntent =
-      hasMedia || /\b(poste|postar|publique?|publicar|agende?|agendar|marca[r]?|programa[r]?)\b/.test(t);
+      hasMedia ||
+      /\b(poste|postar|publique?|publicar|agende?|agendar|marca[r]?|programa[r]?|crie?|criar|faca|fazer|monte|montar)\b/.test(t);
     if (publishIntent) {
-      if (/\b(agora|imediatamente|ja|neste momento|agora mesmo)\b/.test(t)) {
+      if (hasMedia && /\b(agora|imediatamente|ja|neste momento|agora mesmo)\b/.test(t)) {
         return { kind: "PUBLISH_NOW" };
       }
       const when = parsePtBrDateTime(raw, input.timezone, now);
-      return { kind: "SCHEDULE_POST", scheduledAt: when, caption: extractCaption(raw) };
+      const caption = extractCaption(raw);
+      if (!hasMedia) {
+        const terms = extractContentTerms(raw);
+        if (terms.length > 0) return { kind: "SCHEDULE_FROM_CATEGORY", terms, scheduledAt: when, caption };
+        if (/\b(agora|imediatamente|ja)\b/.test(t)) return { kind: "PUBLISH_NOW" };
+      }
+      return { kind: "SCHEDULE_POST", scheduledAt: when, caption };
     }
 
     return { kind: "UNKNOWN" };

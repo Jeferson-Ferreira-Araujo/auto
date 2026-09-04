@@ -3,6 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/db";
 import { childLogger } from "@/lib/logger";
 import { createScheduledPost } from "@/lib/posts";
+import { loadCategoryTree } from "@/lib/categories";
 import { formatTime } from "@/lib/display";
 import { describeWhen } from "./dates";
 
@@ -118,4 +119,14 @@ export async function schedule(
 
 export function unknownReply(): string {
   return `Não entendi 🤔\n\n${HELP_TEXT}`;
+}
+
+/** Árvore de categorias indentada para o WhatsApp. */
+export async function categoryTreeText(org: Organization): Promise<string> {
+  const tree = await loadCategoryTree(org.id);
+  if (tree.length === 0) return "Nenhuma categoria criada. Crie no painel (Categorias).";
+  const lines = tree.map(
+    (n) => `${"  ".repeat(n.depth)}• ${n.name}${n.isActive ? "" : " _(inativa)_"}${n.mediaCount ? ` — ${n.mediaCount}` : ""}`,
+  );
+  return `🗂️ Categorias:\n${lines.join("\n")}`;
 }

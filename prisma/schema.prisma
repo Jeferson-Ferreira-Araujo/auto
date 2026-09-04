@@ -223,17 +223,21 @@ model InstagramAccount {
 model MediaCategory {
   id             String   @id @default(cuid())
   organizationId String
+  parentId       String?
   name           String
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       MediaCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     MediaCategory[] @relation("CategoryTree")
   mediaAssets  MediaAsset[]
   automations  Automation[]
 
-  @@unique([organizationId, name])
+  @@unique([organizationId, parentId, name])
   @@index([organizationId])
+  @@index([parentId])
   @@map("media_categories")
 }
 

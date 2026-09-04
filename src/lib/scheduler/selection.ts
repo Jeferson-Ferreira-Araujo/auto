@@ -1,6 +1,7 @@
 import { MediaType, type MediaAsset, type SelectionStrategy } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { AutomationMediaType } from "@prisma/client";
+import { categoryAndDescendantIds } from "@/lib/categories";
 
 function typeFilter(mediaType: AutomationMediaType): MediaType[] {
   if (mediaType === "IMAGE") return [MediaType.IMAGE];
@@ -19,13 +20,18 @@ export async function eligibleMedia(params: {
   mediaType: AutomationMediaType;
   onDate: Date;
 }): Promise<MediaAsset[]> {
+  // Categoria = ela mesma + todas as subcategorias.
+  const categoryIds = params.categoryId
+    ? await categoryAndDescendantIds(params.organizationId, params.categoryId)
+    : null;
+
   return prisma.mediaAsset.findMany({
     where: {
       organizationId: params.organizationId,
       isActive: true,
       processingStatus: "READY",
       type: { in: typeFilter(params.mediaType) },
-      ...(params.categoryId ? { categoryId: params.categoryId } : {}),
+      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
       AND: [
         { OR: [{ availableFrom: null }, { availableFrom: { lte: params.onDate } }] },
         { OR: [{ availableUntil: null }, { availableUntil: { gte: params.onDate } }] },

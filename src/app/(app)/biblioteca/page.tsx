@@ -1,6 +1,7 @@
 import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
+import { loadCategoryTree, formatPath } from "@/lib/categories";
 import { Uploader } from "./Uploader";
 import { VideoMerger } from "./VideoMerger";
 import { LibraryClient, type MediaItem } from "./LibraryClient";
@@ -10,18 +11,16 @@ export const dynamic = "force-dynamic";
 export default async function BibliotecaPage() {
   const { org } = await requireOrgOrOnboarding();
 
-  const [assets, categories] = await Promise.all([
+  const [assets, tree] = await Promise.all([
     prisma.mediaAsset.findMany({
       where: { organizationId: org.id },
-      include: { category: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.mediaCategory.findMany({
-      where: { organizationId: org.id },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+    loadCategoryTree(org.id),
   ]);
+
+  const pathById = new Map(tree.map((n) => [n.id, formatPath(n.path)]));
+  const categories = tree.map((n) => ({ id: n.id, name: formatPath(n.path), depth: n.depth }));
 
   const items: MediaItem[] = assets.map((a) => ({
     id: a.id,
@@ -29,7 +28,7 @@ export default async function BibliotecaPage() {
     name: a.name,
     caption: a.caption,
     categoryId: a.categoryId,
-    categoryName: a.category?.name ?? null,
+    categoryName: a.categoryId ? (pathById.get(a.categoryId) ?? null) : null,
     isActive: a.isActive,
     availableFrom: a.availableFrom?.toISOString() ?? null,
     availableUntil: a.availableUntil?.toISOString() ?? null,
