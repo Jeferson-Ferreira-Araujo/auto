@@ -126,11 +126,13 @@ enum WatermarkPosition {
 
 /// Espelha auth.users do Supabase. id = uuid do Supabase Auth.
 model User {
-  id        String   @id @db.Uuid
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @db.Uuid
+  email        String    @unique
+  name         String?
+  isSuperAdmin Boolean   @default(false)
+  blockedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   memberships        OrganizationMember[]
   connectedInstagram InstagramAccount[]   @relation("InstagramConnectedBy")
@@ -149,6 +151,8 @@ model Organization {
   mediaLimit        Int               @default(500)
   logoStorageKey    String?
   watermarkStorageKey String?
+  blockedAt         DateTime?
+  storageLimitMb    Int               @default(2048)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 

@@ -52,6 +52,7 @@ export async function runPublish(now = new Date()): Promise<PublishSummary> {
       WHERE sp."status" = 'SCHEDULED'
         AND sp."scheduledAt" <= now()
         AND (sp."nextAttemptAt" IS NULL OR sp."nextAttemptAt" <= now())
+        AND o."blockedAt" IS NULL
         AND (o."autoPublishStatus" = 'ACTIVE' OR sp."source" = 'MANUAL')
       ORDER BY sp."scheduledAt" ASC
       LIMIT ${CLAIM_BATCH}

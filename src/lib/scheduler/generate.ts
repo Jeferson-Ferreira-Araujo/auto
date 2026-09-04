@@ -21,6 +21,7 @@ export async function runGenerate(now = new Date(), organizationId?: string): Pr
     where: {
       isActive: true,
       instagramAccount: { status: "CONNECTED" },
+      organization: { blockedAt: null },
       ...(organizationId ? { organizationId } : {}),
     },
   });

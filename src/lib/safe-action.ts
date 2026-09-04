@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireOrgContext, type OrgContext } from "@/lib/auth";
-import { actionError, actionOk, type ActionResult } from "@/lib/errors";
+import { actionError, actionOk, AppError, type ActionResult } from "@/lib/errors";
 
 /**
  * Cria uma Server Action tipada que:
@@ -15,6 +15,9 @@ export function orgAction<TInput extends z.ZodTypeAny, TOutput>(
   return async (raw: z.input<TInput>): Promise<ActionResult<TOutput>> => {
     try {
       const ctx = await requireOrgContext();
+      if (ctx.org.blockedAt) {
+        throw new AppError("FORBIDDEN", "Empresa suspensa. Fale com o suporte da AUTOMIDIA.");
+      }
       const input = schema.parse(raw);
       const data = await handler(input, ctx);
       return actionOk(data);

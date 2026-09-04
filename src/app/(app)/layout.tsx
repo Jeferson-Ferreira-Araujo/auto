@@ -2,6 +2,7 @@ import { requireUser, getOptionalOrgContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Sidebar } from "./nav";
 import { Topbar } from "./Topbar";
+import { AccountSuspended, OrgSuspended } from "./Suspended";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,15 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+
+  if (user.blockedAt) return <AccountSuspended />;
+
   const ctx = await getOptionalOrgContext();
+
+  // Superadmin pode acessar o painel do sistema mesmo com a própria empresa suspensa.
+  if (ctx?.org.blockedAt && !user.isSuperAdmin) {
+    return <OrgSuspended orgName={ctx.org.name} />;
+  }
 
   const instagram = ctx
     ? await prisma.instagramAccount.findUnique({
@@ -31,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         orgName={ctx?.org.name ?? "Configurar empresa"}
         orgHandle={instagram?.username ?? null}
         paused={ctx?.org.autoPublishStatus === "PAUSED"}
+        isSuperAdmin={user.isSuperAdmin}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar userName={userName} userRole={userRole} />

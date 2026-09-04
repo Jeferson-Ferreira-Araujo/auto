@@ -1,0 +1,7 @@
+ALTER TABLE "users"
+  ADD COLUMN "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "blockedAt" TIMESTAMP(3);
+
+ALTER TABLE "organizations"
+  ADD COLUMN "blockedAt" TIMESTAMP(3),
+  ADD COLUMN "storageLimitMb" INTEGER NOT NULL DEFAULT 2048;

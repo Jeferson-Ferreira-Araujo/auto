@@ -1,8 +1,10 @@
-import { getOptionalOrgContext } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getOptionalOrgContext, getOptionalUser } from "@/lib/auth";
 import { Card, CardBody } from "@/components/ui/primitives";
 import { CreateOrgForm } from "./CreateOrgForm";
 import { DashboardHome } from "./DashboardHome";
 import { PerformanceView } from "./PerformanceView";
+import { AdminPanel } from "./AdminPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,14 @@ export default async function DashboardPage({
   searchParams: Promise<{ view?: string; range?: string; from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
+
+  // Painel do sistema — só superadmin. Não depende de ter empresa.
+  if (sp.view === "admin") {
+    const user = await getOptionalUser();
+    if (!user?.isSuperAdmin || user.blockedAt) redirect("/dashboard");
+    return <AdminPanel />;
+  }
+
   const ctx = await getOptionalOrgContext();
 
   // Estado 1: sem empresa → criar

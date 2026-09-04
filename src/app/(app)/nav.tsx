@@ -21,16 +21,25 @@ const ITEMS: NavItem[] = [
   { href: "/configuracoes", label: "Configurações", icon: "settings" },
 ];
 
+const ADMIN_ITEM: NavItem = {
+  href: "/dashboard?view=admin",
+  label: "Administração",
+  icon: "shield",
+  match: (p, v) => p === "/dashboard" && v === "admin",
+};
+
 const COLLAPSE_KEY = "automidia_sidebar_collapsed";
 
 export function Sidebar({
   orgName,
   orgHandle,
   paused,
+  isSuperAdmin = false,
 }: {
   orgName: string;
   orgHandle?: string | null;
   paused: boolean;
+  isSuperAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -89,9 +98,11 @@ export function Sidebar({
     </Link>
   );
 
+  const items = isSuperAdmin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
+
   const nav = (
     <nav className="flex flex-col gap-0.5">
-      {ITEMS.map((it) => {
+      {items.map((it) => {
         const active = it.match
           ? it.match(pathname, view)
           : pathname === it.href || pathname.startsWith(`${it.href}/`);

@@ -60,6 +60,12 @@ export const Icon = {
       <circle cx="17" cy="7" r="1.2" fill="currentColor" stroke="none" />
     </P>
   ),
+  shield: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" />
+      <path d="m9.5 12 2 2 3.5-4" />
+    </P>
+  ),
   chart: (p: SVGProps<SVGSVGElement>) => (
     <P {...p}>
       <path d="M4 20V4M4 20h16" />

@@ -8,7 +8,21 @@ import { AppError, forbidden, unauthenticated } from "@/lib/errors";
 
 export const ACTIVE_ORG_COOKIE = "instapub_org";
 
-export type SessionUser = { id: string; email: string; name: string | null };
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  isSuperAdmin: boolean;
+  blockedAt: Date | null;
+};
+
+const USER_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  isSuperAdmin: true,
+  blockedAt: true,
+} as const;
 
 /**
  * Retorna o usuário autenticado e garante que exista uma linha em `users`
@@ -26,7 +40,7 @@ export const requireUser = cache(async (): Promise<SessionUser> => {
   // Caminho rápido: a linha-espelho quase sempre já existe.
   const existing = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { id: true, email: true, name: true },
+    select: USER_SELECT,
   });
   if (existing) return existing;
 
@@ -36,7 +50,7 @@ export const requireUser = cache(async (): Promise<SessionUser> => {
       email: user.email,
       name: (user.user_metadata?.name as string | undefined) ?? null,
     },
-    select: { id: true, email: true, name: true },
+    select: USER_SELECT,
   });
 });
 
