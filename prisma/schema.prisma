@@ -395,6 +395,7 @@ model VideoJob {
   autoMode           Boolean        @default(false)
   titleText          String?
   includeLogo        Boolean        @default(false)
+  stripAudio         Boolean        @default(false)
   status             VideoJobStatus @default(PENDING)
   progress           Int            @default(0)
   resultStorageKey   String?

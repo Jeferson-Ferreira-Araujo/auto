@@ -31,6 +31,7 @@ export function VideoEnhancer({
   const [auto, setAuto] = useState(false);
   const [title, setTitle] = useState("");
   const [includeLogo, setIncludeLogo] = useState(false);
+  const [stripAudio, setStripAudio] = useState(false);
   const [job, setJob] = useState<JobState>(null);
   const [variant, setVariant] = useState<"ORIGINAL" | "ENHANCED">(item.publishVariant);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -65,6 +66,7 @@ export function VideoEnhancer({
         auto,
         titleText: title.trim() || null,
         includeLogo: includeLogo && orgHasLogo,
+        stripAudio,
       });
       if (!res.ok) return toast.push(res.error.message, "error");
       setJob({ id: res.data.jobId, status: res.data.status, progress: 0, errorMessage: null });
@@ -188,7 +190,20 @@ export function VideoEnhancer({
                   !auto && preset === p ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5" : ""
                 }`}
               >
-                <div className="font-medium">{PRESETS[p].label}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{PRESETS[p].label}</span>
+                  <span
+                    className={`rounded-full px-1.5 text-[10px] ${
+                      PRESETS[p].intensity === "leve"
+                        ? "bg-green-100 text-green-700"
+                        : PRESETS[p].intensity === "forte"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {PRESETS[p].intensity}
+                  </span>
+                </div>
                 <div className="text-[var(--color-muted)]">{PRESETS[p].description}</div>
               </button>
             ))}
@@ -206,6 +221,21 @@ export function VideoEnhancer({
               Incluir logo da empresa
             </label>
           )}
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={stripAudio}
+              onChange={(e) => setStripAudio(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Publicar sem áudio (Reel mudo)
+              <span className="block text-xs text-[var(--color-muted)]">
+                Use quando o som gravado está ruim. A API não permite adicionar música do Instagram
+                depois — o Reel fica sem som.
+              </span>
+            </span>
+          </label>
           <Button onClick={enhance} disabled={pending || (!auto && !preset)} className="w-full">
             {item.hasEnhanced ? "Refazer" : "Melhorar vídeo"}
           </Button>

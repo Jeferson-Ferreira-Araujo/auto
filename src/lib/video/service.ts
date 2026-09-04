@@ -15,7 +15,13 @@ export const VideoProcessingService = {
   async requestEnhancement(
     organizationId: string,
     mediaAssetId: string,
-    opts: { preset?: PresetName; auto?: boolean; titleText?: string | null; includeLogo?: boolean },
+    opts: {
+      preset?: PresetName;
+      auto?: boolean;
+      titleText?: string | null;
+      includeLogo?: boolean;
+      stripAudio?: boolean;
+    },
   ) {
     const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
     if (!media) throw notFound("Vídeo não encontrado");
@@ -45,6 +51,7 @@ export const VideoProcessingService = {
         autoMode: Boolean(opts.auto),
         titleText: opts.titleText?.trim() || null,
         includeLogo: Boolean(opts.includeLogo),
+        stripAudio: Boolean(opts.stripAudio),
         status: "PENDING",
       },
     });

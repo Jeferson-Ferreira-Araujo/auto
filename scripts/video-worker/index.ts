@@ -66,6 +66,7 @@ type Job = {
   preset: PresetName;
   titleText: string | null;
   includeLogo: boolean;
+  stripAudio: boolean;
 };
 
 async function processJob(db: Client, job: Job) {
@@ -103,6 +104,7 @@ async function processJob(db: Client, job: Job) {
       fontFile: FONT,
       titleText: job.titleText,
       logoPath: logoArg,
+      stripAudio: job.stripAudio,
     });
     let stderr = "";
     try {
@@ -162,7 +164,7 @@ async function main() {
            SELECT id FROM video_jobs WHERE status='PENDING'
            ORDER BY "createdAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
          )
-         RETURNING id, "organizationId", "mediaAssetId", preset, "titleText", "includeLogo"`,
+         RETURNING id, "organizationId", "mediaAssetId", preset, "titleText", "includeLogo", "stripAudio"`,
       );
       if (claimed.rows.length === 0) break;
       await processJob(db, claimed.rows[0]);

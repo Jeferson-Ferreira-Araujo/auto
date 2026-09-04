@@ -15,6 +15,7 @@ export const requestVideoEnhancement = orgAction(
     auto: z.boolean().optional(),
     titleText: z.string().max(90).nullable().optional(),
     includeLogo: z.boolean().optional(),
+    stripAudio: z.boolean().optional(),
   }),
   async (input, { org }) => {
     const job = await VideoProcessingService.requestEnhancement(org.id, input.mediaAssetId, {
@@ -22,6 +23,7 @@ export const requestVideoEnhancement = orgAction(
       auto: input.auto,
       titleText: input.titleText ?? null,
       includeLogo: input.includeLogo,
+      stripAudio: input.stripAudio,
     });
     revalidatePath("/biblioteca");
     return { jobId: job.id, status: job.status };
