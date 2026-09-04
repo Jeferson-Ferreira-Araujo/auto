@@ -394,6 +394,9 @@ model WhatsAppContact {
   verificationCode      String?
   verificationExpiresAt DateTime?
   lastInboundAt         DateTime?
+  /// Última mídia enviada/criada por este contato — referência para "essa foto/esse vídeo".
+  lastMediaAssetId      String?
+  lastMediaAt           DateTime?
   /// Estado de conversa multi-passo (ex.: aguardando horário, confirmar cancelamento). Expira.
   pendingAction         Json?
   pendingExpiresAt      DateTime?

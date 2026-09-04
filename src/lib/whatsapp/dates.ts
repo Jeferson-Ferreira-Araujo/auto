@@ -142,6 +142,60 @@ export function parsePtBrDateTime(text: string, timezone: string, now = new Date
   return instant;
 }
 
+/** "HH:mm" a partir de "18h", "18:00", "18h30", "às 9". Sem data. */
+export function parseHhmm(text: string): string | null {
+  return extractTime(norm(text));
+}
+
+/**
+ * Como parsePtBrDateTime, mas se vier só a hora ("20:00") assume hoje —
+ * ou amanhã se o horário de hoje já passou. Para respostas curtas de conversa.
+ */
+export function parseWhenLoose(text: string, timezone: string, now = new Date()): Date | null {
+  const exact = parsePtBrDateTime(text, timezone, now);
+  if (exact) return exact;
+  const hhmm = extractTime(norm(text));
+  if (!hhmm) return null;
+  let when = fromZonedTime(`${ymdInTz(now, timezone)}T${hhmm}:00`, timezone);
+  if (when.getTime() < now.getTime() + 60_000) {
+    when = fromZonedTime(`${ymdInTz(new Date(now.getTime() + 86400000), timezone)}T${hhmm}:00`, timezone);
+  }
+  return Number.isNaN(when.getTime()) ? null : when;
+}
+
+/**
+ * "mude o post das 18h para 20h" / "de 18:00 para 20:30" → { fromHhmm, toHhmm }.
+ * Retorna null se não encontrar o padrão "de/das X para/pra Y".
+ */
+export function extractTimeChange(text: string): { fromHhmm: string; toHhmm: string } | null {
+  const t = norm(text);
+  const m = t.match(
+    /\b(?:de|das|do)\s+(\d{1,2})(?:\s*[:h]\s*(\d{2}))?\s*h?\s+(?:para|pra|pro|as|às)\s+(\d{1,2})(?:\s*[:h]\s*(\d{2}))?/,
+  );
+  if (!m) return null;
+  const fh = Number(m[1]);
+  const fm = m[2] ? Number(m[2]) : 0;
+  const th = Number(m[3]);
+  const tm = m[4] ? Number(m[4]) : 0;
+  if (fh > 23 || th > 23 || fm > 59 || tm > 59) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { fromHhmm: `${pad(fh)}:${pad(fm)}`, toHhmm: `${pad(th)}:${pad(tm)}` };
+}
+
+/** Combina "YYYY-MM-DD" (fuso) + "HH:mm" num instante UTC. */
+export function combineDateTime(ymdStr: string, hhmm: string, timezone: string): Date | null {
+  const instant = fromZonedTime(`${ymdStr}T${hhmm}:00`, timezone);
+  return Number.isNaN(instant.getTime()) ? null : instant;
+}
+
+/** "YYYY-MM-DD" do dia (no fuso) de um instante. */
+export function ymdInTz(instant: Date, timezone: string): string {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(instant)
+    .reduce<Record<string, string>>((a, x) => ((a[x.type] = x.value), a), {});
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 /** Formata um instante para exibição amigável em pt-BR ("amanhã às 18:00"). */
 export function describeWhen(instant: Date, timezone: string, now = new Date()): string {
   const a = partsInTz(now, timezone);

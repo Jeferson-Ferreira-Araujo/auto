@@ -1,6 +1,9 @@
-import type { PostSource } from "@prisma/client";
+import type { PostSource, PostStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { AppError, validation } from "@/lib/errors";
+import { AppError, conflict, notFound, validation } from "@/lib/errors";
+
+/** Status em que uma publicação ainda pode ser editada/remarcada/cancelada. */
+export const EDITABLE_POST_STATUSES = ["DRAFT", "SCHEDULED", "FAILED"] as const;
 
 export type CreateScheduledPostInput = {
   instagramAccountId?: string;
@@ -52,4 +55,67 @@ export async function createScheduledPost(organizationId: string, input: CreateS
       status: "SCHEDULED",
     },
   });
+}
+
+/** Remarca uma publicação editável para um novo horário (futuro). Escopado por organização. */
+export async function rescheduleScheduledPost(organizationId: string, postId: string, newWhen: Date) {
+  const post = await prisma.scheduledPost.findFirst({ where: { id: postId, organizationId } });
+  if (!post) throw notFound("Publicação não encontrada");
+  if (!(EDITABLE_POST_STATUSES as readonly string[]).includes(post.status)) {
+    throw conflict("Esta publicação não pode mais ser editada.");
+  }
+  if (newWhen.getTime() < Date.now() + 30_000) {
+    throw new AppError("VALIDATION", "Escolha um horário no futuro.");
+  }
+  return prisma.scheduledPost.update({
+    where: { id: post.id },
+    data: {
+      scheduledAt: newWhen,
+      status: post.status === "FAILED" ? "SCHEDULED" : undefined,
+      retryCount: post.status === "FAILED" ? 0 : undefined,
+      nextAttemptAt: null,
+      errorMessage: post.status === "FAILED" ? null : undefined,
+    },
+  });
+}
+
+/** Cancela uma publicação por id. Escopado por organização. */
+export async function cancelScheduledPostById(organizationId: string, postId: string, reason = "Cancelada pelo usuário.") {
+  const post = await prisma.scheduledPost.findFirst({ where: { id: postId, organizationId } });
+  if (!post) throw notFound("Publicação não encontrada");
+  if (post.status === "PUBLISHED" || post.status === "PROCESSING") {
+    throw conflict("Não é possível cancelar uma publicação que já está sendo publicada ou foi publicada.");
+  }
+  return prisma.scheduledPost.update({
+    where: { id: post.id },
+    data: { status: "CANCELLED", errorMessage: reason },
+  });
+}
+
+/** Publicações editáveis num intervalo, opcionalmente filtradas por horário "HH:mm" no fuso da org. */
+export async function findEditablePostsInRange(
+  organizationId: string,
+  from: Date,
+  to: Date,
+  opts?: { hhmm?: string; timeZone?: string },
+) {
+  const posts = await prisma.scheduledPost.findMany({
+    where: {
+      organizationId,
+      scheduledAt: { gte: from, lt: to },
+      status: { in: [...EDITABLE_POST_STATUSES] as PostStatus[] },
+    },
+    include: { mediaAsset: { select: { name: true, type: true } } },
+    orderBy: { scheduledAt: "asc" },
+  });
+  if (opts?.hhmm && opts.timeZone) {
+    const tz = opts.timeZone;
+    return posts.filter(
+      (p) =>
+        new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(
+          p.scheduledAt,
+        ) === opts.hhmm,
+    );
+  }
+  return posts;
 }

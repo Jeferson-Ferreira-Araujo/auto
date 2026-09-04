@@ -99,6 +99,30 @@ export const WhatsAppService = {
               type: "image",
               image: { mediaId: String(img?.id), mime: String(img?.mime_type ?? "image/jpeg"), caption: img?.caption },
             });
+          } else if (msg.type === "video") {
+            const vid = msg.video as { id?: string; mime_type?: string; caption?: string };
+            out.push({
+              ...base,
+              type: "video",
+              video: { mediaId: String(vid?.id), mime: String(vid?.mime_type ?? "video/mp4"), caption: vid?.caption },
+            });
+          } else if (msg.type === "interactive") {
+            const it = msg.interactive as {
+              type?: string;
+              list_reply?: { id?: string; title?: string };
+              button_reply?: { id?: string; title?: string };
+            };
+            const reply = it?.list_reply ?? it?.button_reply;
+            out.push({
+              ...base,
+              type: "interactive",
+              interactiveId: String(reply?.id ?? ""),
+              title: String(reply?.title ?? ""),
+            });
+          } else if (msg.type === "button") {
+            // resposta de botão de template (quick reply) — trata como texto
+            const b = msg.button as { text?: string; payload?: string };
+            out.push({ ...base, type: "text", text: String(b?.payload ?? b?.text ?? "") });
           } else {
             out.push({ ...base, type: "unsupported", raw: String(msg.type) });
           }
@@ -127,6 +151,61 @@ export const WhatsAppService = {
 
   /** Envia uma mensagem de texto simples. Retorna o wamid da mensagem enviada. */
   async sendText(toWaId: string, body: string): Promise<string> {
+    return this.sendRaw(toWaId, {
+      type: "text",
+      text: { preview_url: false, body: body.slice(0, 4096) },
+    });
+  },
+
+  /** Envia uma lista interativa oficial (até 10 linhas no total). */
+  async sendInteractiveList(
+    toWaId: string,
+    input: {
+      body: string;
+      button: string;
+      rows: Array<{ id: string; title: string; description?: string }>;
+      header?: string;
+      footer?: string;
+    },
+  ): Promise<string> {
+    const rows = input.rows.slice(0, 10).map((r) => ({
+      id: r.id.slice(0, 200),
+      title: r.title.slice(0, 24),
+      ...(r.description ? { description: r.description.slice(0, 72) } : {}),
+    }));
+    return this.sendRaw(toWaId, {
+      type: "interactive",
+      interactive: {
+        type: "list",
+        ...(input.header ? { header: { type: "text", text: input.header.slice(0, 60) } } : {}),
+        body: { text: input.body.slice(0, 1024) },
+        ...(input.footer ? { footer: { text: input.footer.slice(0, 60) } } : {}),
+        action: { button: input.button.slice(0, 20), sections: [{ title: "Opções", rows }] },
+      },
+    });
+  },
+
+  /** Envia botões de resposta rápida (até 3). */
+  async sendInteractiveButtons(
+    toWaId: string,
+    input: { body: string; options: Array<{ id: string; title: string }>; footer?: string },
+  ): Promise<string> {
+    const buttons = input.options.slice(0, 3).map((o) => ({
+      type: "reply" as const,
+      reply: { id: o.id.slice(0, 256), title: o.title.slice(0, 20) },
+    }));
+    return this.sendRaw(toWaId, {
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: input.body.slice(0, 1024) },
+        ...(input.footer ? { footer: { text: input.footer.slice(0, 60) } } : {}),
+        action: { buttons },
+      },
+    });
+  },
+
+  async sendRaw(toWaId: string, message: Record<string, unknown>): Promise<string> {
     const res = (await metaFetch(`${cfg().graph}/${cfg().phoneNumberId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -134,8 +213,7 @@ export const WhatsAppService = {
         messaging_product: "whatsapp",
         recipient_type: "individual",
         to: toWaId,
-        type: "text",
-        text: { preview_url: false, body: body.slice(0, 4096) },
+        ...message,
       }),
     })) as { messages?: Array<{ id: string }> };
     return res.messages?.[0]?.id ?? "";

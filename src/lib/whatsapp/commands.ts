@@ -15,24 +15,32 @@ function localYmd(instant: Date, tz: string): string {
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-/** Intervalo [início, fim) de um dia no fuso da organização, em instantes UTC. */
-export function dayRange(day: "today" | "tomorrow", tz: string, now = new Date()): { start: Date; end: Date } {
+/** Intervalo [início, fim) de um dia (ou da semana) no fuso da organização, em instantes UTC. */
+export function dayRange(
+  day: "today" | "tomorrow" | "week",
+  tz: string,
+  now = new Date(),
+): { start: Date; end: Date } {
   const base = day === "tomorrow" ? new Date(now.getTime() + 86400000) : now;
   const ymd = localYmd(base, tz);
   const start = fromZonedTime(`${ymd}T00:00:00`, tz);
-  const end = new Date(start.getTime() + 86400000);
+  const spanDays = day === "week" ? 7 : 1;
+  const end = new Date(start.getTime() + spanDays * 86400000);
   return { start, end };
 }
 
 export const HELP_TEXT = [
-  "🤖 *NEZZA* — comandos disponíveis:",
+  "🤖 *AUTOMIDIA* — o que dá pra fazer por aqui:",
   "",
-  "• *pausar automações* / *ativar automações*",
-  "• *o que está programado para hoje?* / *...para amanhã?*",
-  "• *cancelar publicações de hoje*",
-  "• Envie uma *imagem* com a legenda:",
-  '   _"Poste amanhã às 18h_',
-  '   _Legenda: seu texto aqui"_',
+  "• Envie uma *foto* ou *vídeo* e diga quando publicar (_“amanhã às 18h”_) ou _“publique agora”_",
+  "• *o que tem hoje / amanhã / essa semana?*",
+  "• *mude o post das 18h para 20h* · *cancele a publicação de hoje às 12h*",
+  "• *pause todas as automações* · *ative novamente Promoções*",
+  "• *salve essa foto na categoria Produtos* · *liste as categorias*",
+  "• *como foi meu desempenho essa semana?* · *qual foi minha melhor publicação?*",
+  "• *melhore esse vídeo* · *status da conta*",
+  "",
+  "Digite *menu* para as opções.",
 ].join("\n");
 
 export async function pauseAutomations(org: Organization): Promise<string> {
@@ -45,15 +53,31 @@ export async function resumeAutomations(org: Organization): Promise<string> {
   return "▶️ Publicação automática *reativada*. As automações voltam a publicar nos horários agendados.";
 }
 
-export async function listScheduled(org: Organization, day: "today" | "tomorrow"): Promise<string> {
+export async function listScheduled(org: Organization, day: "today" | "tomorrow" | "week"): Promise<string> {
   const { start, end } = dayRange(day, org.timezone);
   const posts = await prisma.scheduledPost.findMany({
     where: { organizationId: org.id, scheduledAt: { gte: start, lt: end }, status: { in: ["SCHEDULED", "PROCESSING", "DRAFT"] } },
     include: { mediaAsset: { select: { name: true, type: true } } },
     orderBy: { scheduledAt: "asc" },
   });
-  const label = day === "tomorrow" ? "amanhã" : "hoje";
+  const label = day === "tomorrow" ? "amanhã" : day === "week" ? "os próximos 7 dias" : "hoje";
   if (posts.length === 0) return `Nada agendado para ${label}. 🎉`;
+
+  if (day === "week") {
+    const byDay = new Map<string, typeof posts>();
+    for (const p of posts) {
+      const k = new Intl.DateTimeFormat("pt-BR", { timeZone: org.timezone, weekday: "short", day: "2-digit", month: "2-digit" }).format(p.scheduledAt);
+      byDay.set(k, [...(byDay.get(k) ?? []), p]);
+    }
+    const blocks = [...byDay.entries()].map(([d, list]) => {
+      const lines = list.map(
+        (p) => `   ${formatTime(p.scheduledAt, org.timezone)} — ${p.mediaAsset.type === "VIDEO" ? "🎬" : "🖼"} ${p.mediaAsset.name}`,
+      );
+      return `*${d}*\n${lines.join("\n")}`;
+    });
+    return `📅 Programado para ${label}:\n\n${blocks.join("\n\n")}`;
+  }
+
   const lines = posts.map(
     (p) =>
       `• ${formatTime(p.scheduledAt, org.timezone)} — ${p.mediaAsset.type === "VIDEO" ? "🎬" : "🖼"} ${p.mediaAsset.name}` +

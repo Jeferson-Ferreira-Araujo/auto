@@ -74,8 +74,9 @@ export function WhatsAppCard({ state }: { state: WhatsAppState }) {
       <CardBody>
         <h3 className="mb-1 font-medium">WhatsApp</h3>
         <p className="mb-4 text-sm text-[var(--color-muted)]">
-          Controle a NEZZA por mensagem: pausar/ativar automações, ver o que está programado, cancelar
-          publicações do dia e agendar enviando uma foto com legenda.
+          Opere a AUTOMIDIA por mensagem: envie foto/vídeo para publicar ou agendar, veja a agenda,
+          pause/ative automações, mova mídias para categorias, consulte o desempenho e peça a melhoria
+          de vídeo. Digite <strong>menu</strong> no WhatsApp para as opções.
         </p>
 
         {contact?.verified ? (
