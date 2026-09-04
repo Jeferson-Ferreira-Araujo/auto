@@ -101,6 +101,25 @@ enum VideoJobStatus {
 enum VideoJobKind {
   ENHANCE
   MERGE
+  WATERMARK
+}
+
+enum WatermarkSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum WatermarkPosition {
+  TOP_LEFT
+  TOP_CENTER
+  TOP_RIGHT
+  MIDDLE_LEFT
+  CENTER
+  MIDDLE_RIGHT
+  BOTTOM_LEFT
+  BOTTOM_CENTER
+  BOTTOM_RIGHT
 }
 
 // ─────────────────────────── Núcleo multiempresa ───────────────────────────
@@ -129,6 +148,7 @@ model Organization {
   uploadLimitMb     Int               @default(200)
   mediaLimit        Int               @default(500)
   logoStorageKey    String?
+  watermarkStorageKey String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -245,6 +265,13 @@ model MediaAsset {
   enhancedDurationSec  Float?
   publishVariant       PublishVariant @default(ORIGINAL)
   activeVideoJobId     String?
+
+  // Marca d'água aplicada antes de publicar (renderizada sob demanda, nunca no upload).
+  watermarkEnabled      Boolean           @default(false)
+  watermarkPosition     WatermarkPosition @default(BOTTOM_RIGHT)
+  watermarkSize         WatermarkSize     @default(MEDIUM)
+  watermarkOpacity      Int               @default(85)
+  watermarkedStorageKey String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

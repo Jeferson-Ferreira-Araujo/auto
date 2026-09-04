@@ -28,7 +28,14 @@ function bucket(): string {
   return env().R2_BUCKET;
 }
 
-export type MediaKind = "media" | "processed" | "thumb" | "enhanced" | "logo";
+export type MediaKind =
+  | "media"
+  | "processed"
+  | "thumb"
+  | "enhanced"
+  | "logo"
+  | "watermark"
+  | "watermarked";
 
 /** Gera uma chave segura e opaca, isolada por organização. O nome original nunca vira chave. */
 export function buildKey(organizationId: string, kind: MediaKind, ext: string): string {

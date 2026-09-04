@@ -108,7 +108,14 @@ export const deleteMedia = orgAction(z.object({ id: z.string().min(1) }), async 
 
   await prisma.mediaAsset.delete({ where: { id: asset.id } });
   await Promise.all(
-    [asset.storageKey, asset.processedStorageKey, asset.thumbnailKey]
+    [
+      asset.storageKey,
+      asset.processedStorageKey,
+      asset.thumbnailKey,
+      asset.enhancedStorageKey,
+      asset.enhancedThumbnailKey,
+      asset.watermarkedStorageKey,
+    ]
       .filter((k): k is string => Boolean(k))
       .map((k) => deleteObject(k)),
   );

@@ -8,8 +8,10 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { mediaUrl, formatDateTime } from "@/lib/display";
 import { MediaThumb } from "@/components/MediaThumb";
+import type { WatermarkPosition } from "@/lib/media/watermark";
 import { deleteMedia, updateMedia, reprocessMedia } from "./actions";
 import { VideoEnhancer } from "./VideoEnhancer";
+import { WatermarkPanel } from "./WatermarkPanel";
 
 export type MediaItem = {
   id: string;
@@ -33,6 +35,11 @@ export type MediaItem = {
   publishVariant: "ORIGINAL" | "ENHANCED";
   hasEnhanced: boolean;
   activeVideoJobId: string | null;
+  watermarkEnabled: boolean;
+  watermarkPosition: WatermarkPosition;
+  watermarkSize: "SMALL" | "MEDIUM" | "LARGE";
+  watermarkOpacity: number;
+  hasWatermarked: boolean;
 };
 
 type Category = { id: string; name: string };
@@ -42,10 +49,12 @@ export function LibraryClient({
   items,
   categories,
   orgHasLogo,
+  orgHasWatermark,
 }: {
   items: MediaItem[];
   categories: Category[];
   orgHasLogo: boolean;
+  orgHasWatermark: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [categoryId, setCategoryId] = useState<string>("");
@@ -120,6 +129,7 @@ export function LibraryClient({
           item={editing}
           categories={categories}
           orgHasLogo={orgHasLogo}
+          orgHasWatermark={orgHasWatermark}
           onClose={() => setEditing(null)}
         />
       )}
@@ -183,11 +193,13 @@ function EditModal({
   item,
   categories,
   orgHasLogo,
+  orgHasWatermark,
   onClose,
 }: {
   item: MediaItem;
   categories: Category[];
   orgHasLogo: boolean;
+  orgHasWatermark: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -284,6 +296,14 @@ function EditModal({
 
           {item.type === "VIDEO" && item.processingStatus === "READY" && (
             <VideoEnhancer item={item} orgHasLogo={orgHasLogo} onChanged={() => router.refresh()} />
+          )}
+
+          {item.processingStatus === "READY" && (
+            <WatermarkPanel
+              item={item}
+              orgHasWatermark={orgHasWatermark}
+              onChanged={() => router.refresh()}
+            />
           )}
         </div>
 

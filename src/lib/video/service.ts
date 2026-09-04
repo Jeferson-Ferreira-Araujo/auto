@@ -139,6 +139,89 @@ export const VideoProcessingService = {
     return job;
   },
 
+  /**
+   * (Re)cria um job WATERMARK para um vídeo: liga a marca e marca a versão atual como obsoleta.
+   * A imagem da marca e os parâmetros (posição/tamanho/opacidade) vêm de `media_assets`/`organizations`.
+   */
+  async requestWatermark(organizationId: string, mediaAssetId: string) {
+    const [media, org] = await Promise.all([
+      prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } }),
+      prisma.organization.findUniqueOrThrow({ where: { id: organizationId } }),
+    ]);
+    if (!media) throw notFound("Vídeo não encontrado");
+    if (media.type !== "VIDEO") throw validation("Este fluxo é só para vídeos.");
+    if (!org.watermarkStorageKey) {
+      throw new AppError("VALIDATION", "Envie a imagem da marca d'água em Configurações primeiro.");
+    }
+
+    await prisma.videoJob.updateMany({
+      where: { mediaAssetId, kind: "WATERMARK", status: { in: ["PENDING", "PROCESSING"] } },
+      data: { status: "FAILED", errorMessage: "Substituído por um novo pedido." },
+    });
+    if (media.watermarkedStorageKey) await deleteObject(media.watermarkedStorageKey).catch(() => {});
+    await prisma.mediaAsset.update({
+      where: { id: mediaAssetId },
+      data: { watermarkedStorageKey: null },
+    });
+
+    const job = await prisma.videoJob.create({
+      data: { organizationId, mediaAssetId, kind: "WATERMARK", status: "PENDING" },
+    });
+    const dispatched = await dispatchWorker();
+    if (dispatched) {
+      await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
+    }
+    log.info({ jobId: job.id, mediaAssetId, dispatched }, "job de marca d'água criado");
+    return { jobId: job.id, status: job.status };
+  },
+
+  /** Garante que existe um job WATERMARK pendente (usado pela publicação ao adiar). */
+  async ensureWatermarkJob(mediaAssetId: string): Promise<"pending" | "failed"> {
+    const open = await prisma.videoJob.findFirst({
+      where: { mediaAssetId, kind: "WATERMARK", status: { in: ["PENDING", "PROCESSING"] } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (open) return "pending";
+
+    const lastFailed = await prisma.videoJob.findFirst({
+      where: { mediaAssetId, kind: "WATERMARK", status: "FAILED" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (lastFailed && (lastFailed.attempts ?? 0) >= 3) return "failed";
+
+    const media = await prisma.mediaAsset.findUnique({ where: { id: mediaAssetId } });
+    if (!media) return "failed";
+    const job = await prisma.videoJob.create({
+      data: {
+        organizationId: media.organizationId,
+        mediaAssetId,
+        kind: "WATERMARK",
+        status: "PENDING",
+      },
+    });
+    const dispatched = await dispatchWorker();
+    if (dispatched) {
+      await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
+    }
+    return "pending";
+  },
+
+  /** Desliga a marca d'água de um vídeo e apaga a versão renderizada. */
+  async disableWatermark(organizationId: string, mediaAssetId: string) {
+    const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
+    if (!media) throw notFound("Mídia não encontrada");
+    await prisma.videoJob.updateMany({
+      where: { mediaAssetId, kind: "WATERMARK", status: { in: ["PENDING", "PROCESSING"] } },
+      data: { status: "FAILED", errorMessage: "Marca d'água desligada." },
+    });
+    if (media.watermarkedStorageKey) await deleteObject(media.watermarkedStorageKey).catch(() => {});
+    await prisma.mediaAsset.update({
+      where: { id: mediaAssetId },
+      data: { watermarkEnabled: false, watermarkedStorageKey: null },
+    });
+    return { disabled: true };
+  },
+
   async setPublishVariant(organizationId: string, mediaAssetId: string, variant: PublishVariant) {
     const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
     if (!media) throw notFound("Vídeo não encontrado");
@@ -146,6 +229,10 @@ export const VideoProcessingService = {
       throw new AppError("VALIDATION", "Ainda não há uma versão melhorada deste vídeo.");
     }
     await prisma.mediaAsset.update({ where: { id: mediaAssetId }, data: { publishVariant: variant } });
+    // A marca foi renderizada sobre a fonte antiga → refaz sobre a nova.
+    if (media.watermarkEnabled) {
+      await this.requestWatermark(organizationId, mediaAssetId).catch(() => {});
+    }
     return { variant };
   },
 
@@ -154,7 +241,7 @@ export const VideoProcessingService = {
     const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
     if (!media) throw notFound("Vídeo não encontrado");
     await Promise.all(
-      [media.enhancedStorageKey, media.enhancedThumbnailKey]
+      [media.enhancedStorageKey, media.enhancedThumbnailKey, media.watermarkedStorageKey]
         .filter((k): k is string => Boolean(k))
         .map((k) => deleteObject(k)),
     );
@@ -166,8 +253,12 @@ export const VideoProcessingService = {
         enhancedThumbnailKey: null,
         enhancedDurationSec: null,
         activeVideoJobId: null,
+        watermarkedStorageKey: null,
       },
     });
+    if (media.watermarkEnabled) {
+      await this.requestWatermark(organizationId, mediaAssetId).catch(() => {});
+    }
     return { reverted: true };
   },
 

@@ -45,6 +45,11 @@ export default async function BibliotecaPage() {
     publishVariant: a.publishVariant,
     hasEnhanced: Boolean(a.enhancedStorageKey),
     activeVideoJobId: a.activeVideoJobId,
+    watermarkEnabled: a.watermarkEnabled,
+    watermarkPosition: a.watermarkPosition,
+    watermarkSize: a.watermarkSize,
+    watermarkOpacity: a.watermarkOpacity,
+    hasWatermarked: Boolean(a.watermarkedStorageKey),
   }));
 
   return (
@@ -55,7 +60,12 @@ export default async function BibliotecaPage() {
           <Uploader />
           <VideoMerger />
         </div>
-        <LibraryClient items={items} categories={categories} orgHasLogo={Boolean(org.logoStorageKey)} />
+        <LibraryClient
+          items={items}
+          categories={categories}
+          orgHasLogo={Boolean(org.logoStorageKey)}
+          orgHasWatermark={Boolean(org.watermarkStorageKey)}
+        />
       </div>
     </>
   );

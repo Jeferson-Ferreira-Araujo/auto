@@ -7,6 +7,7 @@ import { whatsappConfigured, whatsappTestNumber } from "@/lib/whatsapp/service";
 import { SettingsForm } from "./SettingsForm";
 import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
 import { LogoUpload } from "./LogoUpload";
+import { WatermarkUpload } from "./WatermarkUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,8 @@ export default async function ConfiguracoesPage() {
         <SettingsForm name={org.name} uploadLimitMb={org.uploadLimitMb} />
 
         <LogoUpload hasLogo={Boolean(org.logoStorageKey)} />
+
+        <WatermarkUpload hasWatermark={Boolean(org.watermarkStorageKey)} />
 
         <WhatsAppCard state={whatsappState} />
 

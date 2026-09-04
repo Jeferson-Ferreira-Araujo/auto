@@ -25,7 +25,7 @@ export const WEEKDAY_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function mediaUrl(
   id: string,
-  variant: "thumb" | "preview" | "original" | "enhanced" | "enhanced-thumb" = "thumb",
+  variant: "thumb" | "preview" | "original" | "enhanced" | "enhanced-thumb" | "watermarked" = "thumb",
 ): string {
   return `/api/media?id=${encodeURIComponent(id)}&variant=${variant}`;
 }

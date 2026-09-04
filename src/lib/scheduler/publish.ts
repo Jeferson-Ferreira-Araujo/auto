@@ -1,11 +1,13 @@
 import { Prisma, type ScheduledPost } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { childLogger } from "@/lib/logger";
-import { presignGet } from "@/lib/storage/r2";
+import { presignGet, getObjectBytes, putObject, buildKey } from "@/lib/storage/r2";
 import { publishKeys } from "@/lib/media/variant";
+import { renderImageWatermark } from "@/lib/media/watermark-render";
 import { InstagramService } from "@/lib/instagram/service";
 import { getValidAccessToken, markAccountExpired } from "@/lib/instagram/account";
 import { InstagramApiError, isAuthError } from "@/lib/instagram/errors";
+import { VideoProcessingService } from "@/lib/video/service";
 
 const log = childLogger({ mod: "scheduler/publish" });
 
@@ -78,7 +80,11 @@ type OneOutcome = "published" | "deferred" | "failed";
 async function publishOne(id: string): Promise<OneOutcome> {
   const post = await prisma.scheduledPost.findUnique({
     where: { id },
-    include: { mediaAsset: true, instagramAccount: true },
+    include: {
+      mediaAsset: true,
+      instagramAccount: true,
+      organization: { select: { watermarkStorageKey: true } },
+    },
   });
   if (!post) return "failed";
 
@@ -95,6 +101,12 @@ async function publishOne(id: string): Promise<OneOutcome> {
 
   if (post.instagramAccount.status !== "CONNECTED") {
     return finalizeFailure(post, "Instagram desconectado. Reconecte a conta.", l, false);
+  }
+
+  // Marca d'água: precisa estar pronta ANTES de publicar.
+  if (post.mediaAsset.watermarkEnabled && !post.mediaAsset.watermarkedStorageKey) {
+    const wmOutcome = await ensureWatermarked(post, l);
+    if (wmOutcome) return wmOutcome;
   }
 
   try {
@@ -168,6 +180,61 @@ async function publishOne(id: string): Promise<OneOutcome> {
     const retryable = !(err instanceof InstagramApiError) || err.retryable;
     return finalizeFailure(post, err instanceof Error ? err.message : "Erro ao publicar", l, retryable);
   }
+}
+
+type PostWithRefs = ScheduledPost & {
+  mediaAsset: import("@prisma/client").MediaAsset;
+  organization: { watermarkStorageKey: string | null };
+};
+
+/**
+ * Garante que a versão com marca d'água existe antes de publicar.
+ * Retorna um outcome quando o post foi adiado/falhou; null quando já pode seguir.
+ */
+async function ensureWatermarked(
+  post: PostWithRefs,
+  l: ReturnType<typeof childLogger>,
+): Promise<OneOutcome | null> {
+  const wmKey = post.organization.watermarkStorageKey;
+  if (!wmKey) return null; // sem imagem de marca: publica normal
+
+  if (post.mediaAsset.type === "IMAGE") {
+    try {
+      const [baseBuf, wmBuf] = await Promise.all([
+        getObjectBytes(post.mediaAsset.processedStorageKey ?? post.mediaAsset.storageKey),
+        getObjectBytes(wmKey),
+      ]);
+      const out = await renderImageWatermark(baseBuf, wmBuf, {
+        position: post.mediaAsset.watermarkPosition,
+        size: post.mediaAsset.watermarkSize,
+        opacityPct: post.mediaAsset.watermarkOpacity,
+      });
+      const key = buildKey(post.organizationId, "watermarked", "jpg");
+      await putObject(key, out, "image/jpeg");
+      await prisma.mediaAsset.update({
+        where: { id: post.mediaAssetId },
+        data: { watermarkedStorageKey: key },
+      });
+      post.mediaAsset.watermarkedStorageKey = key; // para o publishKeys() a seguir
+      return null;
+    } catch (err) {
+      l.error({ err }, "falha ao renderizar marca d'água da imagem");
+      return finalizeFailure(post, "Não foi possível aplicar a marca d'água. Confira a imagem em Configurações.", l, false);
+    }
+  }
+
+  // Vídeo: depende do worker do GitHub Actions.
+  const state = await VideoProcessingService.ensureWatermarkJob(post.mediaAssetId);
+  if (state === "failed") {
+    return finalizeFailure(post, "Não foi possível aplicar a marca d'água ao vídeo. Confira a imagem em Configurações.", l, false);
+  }
+  await prisma.scheduledPost.update({
+    where: { id: post.id },
+    data: { status: "SCHEDULED", lockedAt: null, nextAttemptAt: new Date(Date.now() + 90_000) },
+  });
+  await logAttempt(post, "CONTAINER", "SUCCESS", "aguardando a versão com marca d'água");
+  l.info("marca d'água ainda processando; adiado");
+  return "deferred";
 }
 
 /** Aplica retry/backoff ou marca FAILED em definitivo. */

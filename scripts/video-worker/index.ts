@@ -18,6 +18,11 @@ import { ulid } from "ulid";
 import { PRESETS, type PresetName, type VideoProbe } from "../../src/lib/video/presets";
 import { buildFfmpegArgs, buildThumbArgs } from "../../src/lib/video/filtergraph";
 import { buildMergeArgs } from "../../src/lib/video/merge";
+import {
+  buildWatermarkFilter,
+  type WatermarkPosition,
+  type WatermarkSize,
+} from "../../src/lib/media/watermark";
 
 const MAX_MERGE_DURATION_SEC = 15 * 60;
 
@@ -66,7 +71,7 @@ type Job = {
   id: string;
   organizationId: string;
   mediaAssetId: string;
-  kind: "ENHANCE" | "MERGE";
+  kind: "ENHANCE" | "MERGE" | "WATERMARK";
   preset: PresetName | null;
   inputStorageKeys: string[];
   titleText: string | null;
@@ -167,8 +172,95 @@ async function processMerge(db: Client, job: Job) {
   }
 }
 
+async function processWatermark(db: Client, job: Job) {
+  const work = await mkdtemp(join(tmpdir(), "wm-"));
+  const inPath = join(work, "in.mp4");
+  const wmPath = join(work, "wm.png");
+  const outPath = join(work, "out.mp4");
+  try {
+    const row = (
+      await db.query(
+        `SELECT ma."storageKey", ma."enhancedStorageKey", ma."publishVariant",
+                ma."watermarkPosition", ma."watermarkSize", ma."watermarkOpacity",
+                o."watermarkStorageKey"
+         FROM media_assets ma JOIN organizations o ON o.id = ma."organizationId"
+         WHERE ma.id = $1`,
+        [job.mediaAssetId],
+      )
+    ).rows[0];
+    if (!row) throw new Error("mídia não encontrada");
+    if (!row.watermarkStorageKey) throw new Error("Envie a imagem da marca d'água em Configurações.");
+
+    const sourceKey =
+      row.publishVariant === "ENHANCED" && row.enhancedStorageKey
+        ? row.enhancedStorageKey
+        : row.storageKey;
+
+    await db.query(`UPDATE video_jobs SET progress = 15, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    await download(sourceKey, inPath);
+    await download(row.watermarkStorageKey, wmPath);
+
+    const probe = await ffprobe(inPath);
+    if (probe.width === 0 || probe.height === 0) throw new Error("Não foi possível ler o vídeo.");
+
+    const filter = buildWatermarkFilter({
+      videoW: probe.width,
+      videoH: probe.height,
+      position: row.watermarkPosition as WatermarkPosition,
+      size: row.watermarkSize as WatermarkSize,
+      opacityPct: Number(row.watermarkOpacity) || 85,
+    });
+
+    await db.query(`UPDATE video_jobs SET progress = 45, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    const args = [
+      "-y",
+      "-i", inPath,
+      "-i", wmPath,
+      "-filter_complex", filter,
+      "-map", "[outv]",
+      "-map", "0:a?",
+      "-c:a", "copy",
+      "-c:v", "libx264",
+      "-profile:v", "high",
+      "-pix_fmt", "yuv420p",
+      "-preset", "veryfast",
+      "-crf", "20",
+      "-movflags", "+faststart",
+      outPath,
+    ];
+    try {
+      await exec("ffmpeg", args, { maxBuffer: 1024 * 1024 * 32 });
+    } catch (e) {
+      const se = (e as { stderr?: string }).stderr ?? "";
+      throw new Error(`ffmpeg: ${se.split("\n").slice(-6).join(" | ").slice(0, 600)}`);
+    }
+
+    await db.query(`UPDATE video_jobs SET progress = 85, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    const outProbe = await ffprobe(outPath);
+    const resultKey = buildKey(job.organizationId, "watermarked", "mp4");
+    await upload(resultKey, outPath, "video/mp4");
+
+    await db.query(
+      `UPDATE media_assets SET "watermarkedStorageKey" = $2, "updatedAt" = now() WHERE id = $1`,
+      [job.mediaAssetId, resultKey],
+    );
+    await db.query(
+      `UPDATE video_jobs SET status='COMPLETED', progress=100, "completedAt"=now(), "updatedAt"=now(),
+         "resultStorageKey"=$2, "resultDurationSec"=$3, "resultWidth"=$4, "resultHeight"=$5
+       WHERE id=$1`,
+      [job.id, resultKey, outProbe.durationSec, outProbe.width, outProbe.height],
+    );
+    console.log(`✓ marca d'água ${job.id} concluída`);
+  } catch (err) {
+    await failJob(db, job, err instanceof Error ? err.message : String(err));
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
 async function processJob(db: Client, job: Job) {
   if (job.kind === "MERGE") return processMerge(db, job);
+  if (job.kind === "WATERMARK") return processWatermark(db, job);
   const work = await mkdtemp(join(tmpdir(), "vid-"));
   const inPath = join(work, "in.mp4");
   const outPath = join(work, "out.mp4");
@@ -232,7 +324,8 @@ async function processJob(db: Client, job: Job) {
     );
     await db.query(
       `UPDATE media_assets SET "enhancedStorageKey"=$2, "enhancedThumbnailKey"=$3, "enhancedDurationSec"=$4,
-         "activeVideoJobId"=$1, "updatedAt"=now()
+         "activeVideoJobId"=$1, "updatedAt"=now(),
+         "watermarkedStorageKey" = CASE WHEN "watermarkEnabled" THEN NULL ELSE "watermarkedStorageKey" END
        WHERE id = (SELECT "mediaAssetId" FROM video_jobs WHERE id = $1)`,
       [job.id, resultKey, thumbKey, outProbe.durationSec],
     );

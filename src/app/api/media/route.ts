@@ -25,6 +25,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(await presignGet(org.logoStorageKey, 900), { status: 302 });
     }
 
+    if (req.nextUrl.searchParams.get("watermark")) {
+      if (!org.watermarkStorageKey) throw notFound("Sem marca d'água");
+      return NextResponse.redirect(await presignGet(org.watermarkStorageKey, 900), { status: 302 });
+    }
+
     const id = req.nextUrl.searchParams.get("id");
     const variant = req.nextUrl.searchParams.get("variant") ?? "thumb";
     if (!id) throw validation("id ausente");
@@ -37,6 +42,8 @@ export async function GET(req: NextRequest) {
     else if (variant === "original") key = asset.storageKey;
     else if (variant === "enhanced") key = asset.enhancedStorageKey ?? asset.processedStorageKey ?? asset.storageKey;
     else if (variant === "enhanced-thumb") key = asset.enhancedThumbnailKey ?? asset.thumbnailKey;
+    else if (variant === "watermarked")
+      key = asset.watermarkedStorageKey ?? asset.processedStorageKey ?? asset.storageKey;
     else key = asset.thumbnailKey ?? asset.processedStorageKey ?? asset.storageKey;
     if (!key) throw notFound("Arquivo indisponível");
 
