@@ -23,6 +23,7 @@ export async function renderImageWatermark(
     wmNaturalH: wmMeta.height ?? 300,
     position: opts.position,
     size: opts.size,
+    kind: "IMAGE",
   });
 
   const alpha = Math.max(10, Math.min(100, opts.opacityPct)) / 100;

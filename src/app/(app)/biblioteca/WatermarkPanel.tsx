@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useToast } from "@/components/ui/toast";
 import { mediaUrl } from "@/lib/display";
-import type { WatermarkPosition } from "@/lib/media/watermark";
+import { resolveImageLayout, type WatermarkPosition, type WatermarkSize } from "@/lib/media/watermark";
 import type { MediaItem } from "./LibraryClient";
 import { getVideoJob } from "./video-actions";
 import { setMediaWatermark } from "./watermark-media-actions";
@@ -36,7 +36,6 @@ export function WatermarkPanel({
   const [opacity, setOpacity] = useState(item.watermarkOpacity);
   const [status, setStatus] = useState<"idle" | "saving" | "rendering">("idle");
   const [hasWatermarked, setHasWatermarked] = useState(item.hasWatermarked);
-  const [rev, setRev] = useState(0);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -54,7 +53,6 @@ export function WatermarkPanel({
         if (pollRef.current) clearInterval(pollRef.current);
         setStatus("idle");
         setHasWatermarked(true);
-        setRev((r) => r + 1);
         toast.push("Versão com marca d'água pronta.", "success");
         onChanged();
       } else if (res.data.status === "FAILED") {
@@ -88,7 +86,6 @@ export function WatermarkPanel({
       if ("rendered" in res.data && res.data.rendered) {
         setStatus("idle");
         setHasWatermarked(true);
-        setRev((r) => r + 1);
         onChanged();
       } else if ("jobId" in res.data && res.data.jobId) {
         setStatus("rendering");
@@ -201,40 +198,109 @@ export function WatermarkPanel({
                 />
               </div>
 
-              <div className="text-xs">
-                {status === "rendering" && (
-                  <span className="text-amber-700">Preparando a versão com marca…</span>
-                )}
-                {status === "saving" && <span className="text-[var(--color-muted)]">Salvando…</span>}
-                {status === "idle" && hasWatermarked && (
-                  <span className="text-green-700">Versão com marca pronta.</span>
-                )}
-              </div>
+              <div>
+                <div className="mb-1 text-xs text-[var(--color-muted)]">Prévia</div>
+                <LivePreview
+                  id={item.id}
+                  type={item.type}
+                  position={position}
+                  size={size}
+                  opacity={opacity}
+                />
 
-              {hasWatermarked && status === "idle" && (
-                <div className="overflow-hidden rounded border bg-[var(--color-bg)]">
-                  {item.type === "VIDEO" ? (
-                    <video
-                      key={rev}
-                      src={`${mediaUrl(item.id, "watermarked")}${rev ? `&r=${rev}` : ""}`}
-                      controls
-                      className="max-h-64 w-full"
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={rev}
-                      src={`${mediaUrl(item.id, "watermarked")}${rev ? `&r=${rev}` : ""}`}
-                      alt=""
-                      className="max-h-64 w-full object-contain"
-                    />
-                  )}
-                </div>
-              )}
+                <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+                  Prévia aproximada.{" "}
+                  {status === "rendering"
+                    ? "Gerando a versão final do vídeo…"
+                    : status === "saving"
+                      ? "Salvando…"
+                      : hasWatermarked
+                        ? "Versão final pronta."
+                        : ""}
+                </p>
+              </div>
             </>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Prévia instantânea composta no navegador (sem ida ao servidor). */
+function LivePreview({
+  id,
+  type,
+  position,
+  size,
+  opacity,
+}: {
+  id: string;
+  type: "IMAGE" | "VIDEO";
+  position: WatermarkPosition;
+  size: WatermarkSize;
+  opacity: number;
+}) {
+  const [base, setBase] = useState<{ w: number; h: number } | null>(null);
+  const [wm, setWm] = useState<{ w: number; h: number } | null>(null);
+
+  const layout =
+    base && wm
+      ? resolveImageLayout({
+          mediaW: base.w,
+          mediaH: base.h,
+          wmNaturalW: wm.w,
+          wmNaturalH: wm.h,
+          position,
+          size,
+          kind: type,
+        })
+      : null;
+
+  const style: CSSProperties =
+    layout && base
+      ? {
+          left: `${(layout.left / base.w) * 100}%`,
+          top: `${(layout.top / base.h) * 100}%`,
+          width: `${(layout.width / base.w) * 100}%`,
+          opacity: Math.max(10, Math.min(100, opacity)) / 100,
+        }
+      : { display: "none" };
+
+  return (
+    <div className="flex justify-center rounded border bg-[var(--color-bg)] p-1">
+      <div className="relative">
+        {type === "VIDEO" ? (
+          <video
+            src={`${mediaUrl(id, "preview")}#t=0.1`}
+            muted
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={(e) =>
+              setBase({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })
+            }
+            className="block max-h-64 w-auto max-w-full"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mediaUrl(id, "preview")}
+            alt=""
+            onLoad={(e) =>
+              setBase({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+            }
+            className="block max-h-64 w-auto max-w-full"
+          />
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/api/media?watermark=1"
+          alt=""
+          onLoad={(e) => setWm({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          className="pointer-events-none absolute"
+          style={style}
+        />
+      </div>
     </div>
   );
 }

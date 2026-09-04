@@ -58,7 +58,11 @@ export function splitPosition(p: WatermarkPosition): { row: Row; col: Col } {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** Posição/tamanho da marca em pixels sobre uma imagem (para sharp.composite). */
+/**
+ * Posição/tamanho da marca em pixels sobre a mídia (para `sharp.composite` e para
+ * o preview no navegador — basta dividir pelos lados renderizados).
+ * `kind` controla as margens seguras (IMAGE = feed, VIDEO = Reels).
+ */
 export function resolveImageLayout(input: {
   mediaW: number;
   mediaH: number;
@@ -66,9 +70,10 @@ export function resolveImageLayout(input: {
   wmNaturalH: number;
   position: WatermarkPosition;
   size: WatermarkSize;
+  kind?: "IMAGE" | "VIDEO";
 }): { left: number; top: number; width: number; height: number } {
   const { mediaW, mediaH, wmNaturalW, wmNaturalH, position, size } = input;
-  const ins = safeInsets("IMAGE");
+  const ins = safeInsets(input.kind ?? "IMAGE");
   const L = Math.round(mediaW * ins.left);
   const R = Math.round(mediaW * ins.right);
   const T = Math.round(mediaH * ins.top);
