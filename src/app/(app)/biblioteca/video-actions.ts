@@ -30,6 +30,22 @@ export const requestVideoEnhancement = orgAction(
   },
 );
 
+export const mergeVideos = orgAction(
+  z.object({
+    name: z.string().trim().max(120).optional(),
+    inputStorageKeys: z.array(z.string().min(1)).min(2).max(8),
+  }),
+  async (input, { org }) => {
+    const res = await VideoProcessingService.requestMerge(org.id, {
+      inputStorageKeys: input.inputStorageKeys,
+      name: input.name ?? null,
+      timezone: org.timezone,
+    });
+    revalidatePath("/biblioteca");
+    return res;
+  },
+);
+
 export const getVideoJob = orgAction(z.object({ jobId: z.string().min(1) }), async (input, { org }) => {
   const job = await VideoProcessingService.getJob(org.id, input.jobId);
   return {

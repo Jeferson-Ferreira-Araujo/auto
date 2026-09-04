@@ -2,6 +2,7 @@ import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Uploader } from "./Uploader";
+import { VideoMerger } from "./VideoMerger";
 import { LibraryClient, type MediaItem } from "./LibraryClient";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +51,10 @@ export default async function BibliotecaPage() {
     <>
       <PageHeader title="Biblioteca" description={`${items.length} mídia(s) · limite de ${org.mediaLimit}`} />
       <div className="space-y-6">
-        <Uploader />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Uploader />
+          <VideoMerger />
+        </div>
         <LibraryClient items={items} categories={categories} orgHasLogo={Boolean(org.logoStorageKey)} />
       </div>
     </>

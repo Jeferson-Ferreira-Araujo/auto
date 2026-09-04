@@ -129,15 +129,31 @@ export function LibraryClient({
 
 function MediaCard({ item, now, onOpen }: { item: MediaItem; now: number; onOpen: () => void }) {
   const expired = item.availableUntil != null && new Date(item.availableUntil).getTime() < now;
+  const pending = item.processingStatus === "PENDING";
+  const broken = item.processingStatus === "FAILED" && item.duration == null && item.width == null;
   return (
     <Card className="overflow-hidden">
       <button onClick={onOpen} className="block w-full text-left">
         <div className="relative aspect-square bg-[var(--color-bg)]">
-          <MediaThumb id={item.id} type={item.type} alt={item.name} className="h-full w-full object-cover" />
-          {item.type === "VIDEO" && (
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white">▶</span>
-            </span>
+          {pending ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--color-muted)]">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+              <span className="text-xs">{item.processingNote ?? "Processando…"}</span>
+            </div>
+          ) : broken ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 text-center text-[var(--color-danger)]">
+              <span className="text-2xl">⚠</span>
+              <span className="text-xs">{item.processingError ?? "Falhou"}</span>
+            </div>
+          ) : (
+            <>
+              <MediaThumb id={item.id} type={item.type} alt={item.name} className="h-full w-full object-cover" />
+              {item.type === "VIDEO" && (
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white">▶</span>
+                </span>
+              )}
+            </>
           )}
           <span className="absolute left-1.5 top-1.5">
             <Badge tone={item.type === "VIDEO" ? "info" : "neutral"}>{item.type === "VIDEO" ? "Vídeo" : "Imagem"}</Badge>
@@ -218,7 +234,12 @@ function EditModal({
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <div className="overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)]">
-            {item.type === "VIDEO" ? (
+            {item.processingStatus === "PENDING" ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 text-sm text-[var(--color-muted)]">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+                {item.processingNote ?? "Processando…"}
+              </div>
+            ) : item.type === "VIDEO" ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
               <video src={mediaUrl(item.id, "preview")} controls className="max-h-80 w-full" />
             ) : (

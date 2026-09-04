@@ -1,0 +1,5 @@
+CREATE TYPE "VideoJobKind" AS ENUM ('ENHANCE', 'MERGE');
+ALTER TABLE "video_jobs"
+  ADD COLUMN "kind" "VideoJobKind" NOT NULL DEFAULT 'ENHANCE',
+  ADD COLUMN "inputStorageKeys" TEXT[] NOT NULL DEFAULT '{}',
+  ALTER COLUMN "preset" DROP NOT NULL;

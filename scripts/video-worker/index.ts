@@ -8,15 +8,18 @@
  *      FFMPEG_FONT (opcional; default = DejaVuSans-Bold do runner)
  */
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { Client } from "pg";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { ulid } from "ulid";
 import { PRESETS, type PresetName, type VideoProbe } from "../../src/lib/video/presets";
 import { buildFfmpegArgs, buildThumbArgs } from "../../src/lib/video/filtergraph";
+import { buildMergeArgs } from "../../src/lib/video/merge";
+
+const MAX_MERGE_DURATION_SEC = 15 * 60;
 
 const exec = promisify(execFile);
 const FONT = process.env.FFMPEG_FONT || "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
@@ -63,13 +66,109 @@ type Job = {
   id: string;
   organizationId: string;
   mediaAssetId: string;
-  preset: PresetName;
+  kind: "ENHANCE" | "MERGE";
+  preset: PresetName | null;
+  inputStorageKeys: string[];
   titleText: string | null;
   includeLogo: boolean;
   stripAudio: boolean;
 };
 
+/** Marca o job (e, no merge, o asset placeholder) como falho ou reenfileira. */
+async function failJob(db: Client, job: Job, msg: string) {
+  console.error(`✗ job ${job.id} falhou:`, msg.slice(0, 500));
+  await db.query(
+    `UPDATE video_jobs
+       SET status = (CASE WHEN attempts >= 3 THEN 'FAILED' ELSE 'PENDING' END)::"VideoJobStatus",
+           "errorMessage" = $2, "updatedAt" = now()
+     WHERE id = $1`,
+    [job.id, msg.slice(0, 800)],
+  );
+  if (job.kind === "MERGE") {
+    await db.query(
+      `UPDATE media_assets
+         SET "processingStatus" = (CASE WHEN (SELECT attempts FROM video_jobs WHERE id = $1) >= 3
+                                        THEN 'FAILED' ELSE 'PENDING' END)::"MediaProcessingStatus",
+             "processingError" = $2, "updatedAt" = now()
+       WHERE id = $3`,
+      [job.id, "Não foi possível juntar os vídeos. Tente novamente.", job.mediaAssetId],
+    );
+  }
+}
+
+async function processMerge(db: Client, job: Job) {
+  const work = await mkdtemp(join(tmpdir(), "merge-"));
+  const inputs = job.inputStorageKeys.map((_, i) => join(work, `in${i}.mp4`));
+  const outPath = join(work, "out.mp4");
+  const thumbPath = join(work, "thumb.jpg");
+  try {
+    if (job.inputStorageKeys.length < 2) throw new Error("São necessários pelo menos 2 vídeos.");
+
+    await db.query(`UPDATE video_jobs SET progress = 10, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    for (let i = 0; i < job.inputStorageKeys.length; i++) {
+      await download(job.inputStorageKeys[i], inputs[i]);
+    }
+
+    let totalDur = 0;
+    for (const p of inputs) {
+      const pr = await ffprobe(p);
+      if (pr.durationSec <= 0 || pr.width === 0) throw new Error("Um dos arquivos não é um vídeo válido.");
+      totalDur += pr.durationSec;
+    }
+    if (totalDur > MAX_MERGE_DURATION_SEC) {
+      throw new Error(`A soma dos vídeos (${Math.round(totalDur)}s) passa do limite de 15 minutos.`);
+    }
+
+    await db.query(`UPDATE video_jobs SET progress = 35, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    try {
+      await exec("ffmpeg", buildMergeArgs(inputs, outPath), { maxBuffer: 1024 * 1024 * 32 });
+    } catch (e) {
+      const se = (e as { stderr?: string }).stderr ?? "";
+      throw new Error(`ffmpeg: ${se.split("\n").slice(-6).join(" | ").slice(0, 600)}`);
+    }
+
+    await db.query(`UPDATE video_jobs SET progress = 80, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    await exec("ffmpeg", buildThumbArgs(outPath, thumbPath));
+
+    const outProbe = await ffprobe(outPath);
+    const resultKey = buildKey(job.organizationId, "media", "mp4");
+    const thumbKey = buildKey(job.organizationId, "thumb", "jpg");
+    await upload(resultKey, outPath, "video/mp4");
+    await upload(thumbKey, thumbPath, "image/jpeg");
+
+    const { size } = await stat(outPath);
+    const n = job.inputStorageKeys.length;
+    await db.query(
+      `UPDATE media_assets
+         SET "storageKey" = $2, "processedStorageKey" = $2, "thumbnailKey" = $3,
+             "fileSize" = $4, width = $5, height = $6, duration = $7,
+             "processingStatus" = 'READY'::"MediaProcessingStatus", "processingError" = NULL,
+             "processingNote" = $8, "activeVideoJobId" = NULL, "updatedAt" = now()
+       WHERE id = $1`,
+      [job.mediaAssetId, resultKey, thumbKey, size, outProbe.width, outProbe.height, outProbe.durationSec,
+       `Vídeo criado juntando ${n} clipes (sem áudio).`],
+    );
+    await db.query(
+      `UPDATE video_jobs SET status='COMPLETED', progress=100, "completedAt"=now(), "updatedAt"=now(),
+         "resultStorageKey"=$2, "resultThumbnailKey"=$3, "resultDurationSec"=$4, "resultWidth"=$5, "resultHeight"=$6
+       WHERE id=$1`,
+      [job.id, resultKey, thumbKey, outProbe.durationSec, outProbe.width, outProbe.height],
+    );
+
+    // limpeza: os clipes de entrada só existem para o merge
+    for (const key of job.inputStorageKeys) {
+      await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key })).catch(() => {});
+    }
+    console.log(`✓ merge ${job.id} concluído (${n} clipes, ${outProbe.durationSec.toFixed(1)}s)`);
+  } catch (err) {
+    await failJob(db, job, err instanceof Error ? err.message : String(err));
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
 async function processJob(db: Client, job: Job) {
+  if (job.kind === "MERGE") return processMerge(db, job);
   const work = await mkdtemp(join(tmpdir(), "vid-"));
   const inPath = join(work, "in.mp4");
   const outPath = join(work, "out.mp4");
@@ -98,6 +197,7 @@ async function processJob(db: Client, job: Job) {
 
     await db.query(`UPDATE video_jobs SET progress = 35, "updatedAt" = now() WHERE id = $1`, [job.id]);
 
+    if (!job.preset) throw new Error("preset ausente para job de melhoria");
     const args = buildFfmpegArgs(PRESETS[job.preset], probe, {
       inputPath: inPath,
       outputPath: outPath,
@@ -164,7 +264,8 @@ async function main() {
            SELECT id FROM video_jobs WHERE status='PENDING'
            ORDER BY "createdAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
          )
-         RETURNING id, "organizationId", "mediaAssetId", preset, "titleText", "includeLogo", "stripAudio"`,
+         RETURNING id, "organizationId", "mediaAssetId", kind, preset, "inputStorageKeys",
+                   "titleText", "includeLogo", "stripAudio"`,
       );
       if (claimed.rows.length === 0) break;
       await processJob(db, claimed.rows[0]);

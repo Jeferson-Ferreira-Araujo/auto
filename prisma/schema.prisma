@@ -98,6 +98,11 @@ enum VideoJobStatus {
   FAILED
 }
 
+enum VideoJobKind {
+  ENHANCE
+  MERGE
+}
+
 // ─────────────────────────── Núcleo multiempresa ───────────────────────────
 
 /// Espelha auth.users do Supabase. id = uuid do Supabase Auth.
@@ -398,7 +403,9 @@ model VideoJob {
   id                 String         @id @default(cuid())
   organizationId     String
   mediaAssetId       String
-  preset             VideoPreset
+  kind               VideoJobKind   @default(ENHANCE)
+  preset             VideoPreset?
+  inputStorageKeys   String[]       @default([])
   autoMode           Boolean        @default(false)
   titleText          String?
   includeLogo        Boolean        @default(false)

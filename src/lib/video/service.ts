@@ -9,6 +9,8 @@ import { dispatchWorker } from "./dispatch";
 const log = childLogger({ mod: "video/service" });
 
 const STUCK_MS = 15 * 60 * 1000;
+const MERGE_MIN = 2;
+const MERGE_MAX = 8;
 
 export const VideoProcessingService = {
   /** Cria um job de melhoria e acorda o worker. */
@@ -64,6 +66,73 @@ export const VideoProcessingService = {
     return job;
   },
 
+  /**
+   * Cria um job de MERGE: junta vários vídeos (já enviados ao R2) num único Reel 9:16 sem áudio.
+   * Cria um MediaAsset placeholder (PENDING) que o worker preenche ao concluir.
+   */
+  async requestMerge(
+    organizationId: string,
+    input: { inputStorageKeys: string[]; name?: string | null; timezone?: string },
+  ) {
+    const keys = input.inputStorageKeys;
+    if (keys.length < MERGE_MIN || keys.length > MERGE_MAX) {
+      throw validation(`Escolha de ${MERGE_MIN} a ${MERGE_MAX} vídeos para juntar.`);
+    }
+    const prefix = `org/${organizationId}/media/`;
+    if (!keys.every((k) => k.startsWith(prefix))) {
+      throw validation("Um dos arquivos enviados é inválido.");
+    }
+    if (new Set(keys).size !== keys.length) {
+      throw validation("Há vídeos repetidos na lista.");
+    }
+
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
+    const count = await prisma.mediaAsset.count({ where: { organizationId } });
+    if (count >= org.mediaLimit) {
+      throw new AppError("RATE_LIMITED", `Limite de ${org.mediaLimit} mídias atingido para esta empresa.`);
+    }
+
+    const now = new Date();
+    const stamp = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: input.timezone ?? org.timezone,
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(now);
+
+    const asset = await prisma.mediaAsset.create({
+      data: {
+        organizationId,
+        type: "VIDEO",
+        name: input.name?.trim() || `Vídeo juntado — ${stamp}`,
+        storageKey: "",
+        mimeType: "video/mp4",
+        fileSize: 0,
+        processingStatus: "PENDING",
+        processingNote: "Juntando vídeos…",
+      },
+    });
+
+    const job = await prisma.videoJob.create({
+      data: {
+        organizationId,
+        mediaAssetId: asset.id,
+        kind: "MERGE",
+        inputStorageKeys: keys,
+        status: "PENDING",
+      },
+    });
+    await prisma.mediaAsset.update({ where: { id: asset.id }, data: { activeVideoJobId: job.id } });
+
+    const dispatched = await dispatchWorker();
+    if (dispatched) {
+      await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
+    }
+    log.info({ jobId: job.id, clips: keys.length, dispatched }, "job de merge criado");
+    return { jobId: job.id, mediaAssetId: asset.id, status: job.status };
+  },
+
   async getJob(organizationId: string, jobId: string) {
     const job = await prisma.videoJob.findFirst({ where: { id: jobId, organizationId } });
     if (!job) throw notFound("Job não encontrado");
@@ -113,10 +182,26 @@ export const VideoProcessingService = {
       },
       data: { status: "PENDING", progress: 0 },
     });
-    const failed = await prisma.videoJob.updateMany({
+    const toFail = await prisma.videoJob.findMany({
       where: { status: { in: ["PENDING", "PROCESSING"] }, updatedAt: { lt: cutoff }, attempts: { gte: 3 } },
+      select: { id: true, kind: true, mediaAssetId: true },
+    });
+    const failed = await prisma.videoJob.updateMany({
+      where: { id: { in: toFail.map((j) => j.id) } },
       data: { status: "FAILED", errorMessage: "Tempo esgotado no processamento." },
     });
+    // Merge: o asset placeholder não tem original — marca como falho para o usuário poder excluí-lo.
+    const mergeAssetIds = toFail.filter((j) => j.kind === "MERGE").map((j) => j.mediaAssetId);
+    if (mergeAssetIds.length > 0) {
+      await prisma.mediaAsset.updateMany({
+        where: { id: { in: mergeAssetIds } },
+        data: {
+          processingStatus: "FAILED",
+          processingError: "Não foi possível juntar os vídeos. Tente novamente.",
+          activeVideoJobId: null,
+        },
+      });
+    }
     if (stuck.count > 0) await dispatchWorker();
     return { requeued: stuck.count, failed: failed.count };
   },
