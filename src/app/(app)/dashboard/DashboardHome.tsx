@@ -240,9 +240,9 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Próximas publicações */}
-        <div className="lg:col-span-3">
+        <div className="min-w-0 lg:col-span-3">
           <Card>
             <CardBody>
               <div className="mb-3 flex items-center justify-between">
@@ -304,7 +304,7 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
         </div>
 
         {/* Coluna direita */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card>
             <CardBody>
               <div className="mb-3 flex items-center justify-between">

@@ -56,7 +56,7 @@ export default async function BibliotecaPage() {
     <>
       <PageHeader title="Biblioteca" description={`${items.length} mídia(s) · limite de ${org.mediaLimit}`} />
       <div className="space-y-6">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Uploader />
           <VideoMerger />
         </div>

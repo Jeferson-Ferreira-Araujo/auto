@@ -195,7 +195,7 @@ export async function PerformanceView({
         {(report.bestReel || report.bestImage || report.bestCategory) && (
           <div>
             <h2 className="mb-2 text-sm font-semibold text-[var(--color-muted)]">DESTAQUES</h2>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {report.bestReel && <BestCard title="Melhor Reel" media={report.bestReel} />}
               {report.bestImage && <BestCard title="Melhor imagem" media={report.bestImage} />}
               {report.bestCategory && (
