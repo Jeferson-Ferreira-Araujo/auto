@@ -174,60 +174,71 @@ function NodeRow({
     });
   }
 
-  return (
-    <div>
-      <div className="flex items-center gap-2 p-3" style={{ paddingLeft: 12 + node.depth * 20 }}>
-        <button
-          onClick={onToggleCollapse}
-          className={`w-4 text-xs text-[var(--color-muted)] ${hasChildren ? "" : "invisible"}`}
-        >
-          {collapsed ? "▸" : "▾"}
-        </button>
+  const indent = node.depth * 16;
 
-        {editing ? (
-          <>
-            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 max-w-xs" />
-            <Button size="sm" onClick={saveName} disabled={pending}>
-              Salvar
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-              Cancelar
-            </Button>
-          </>
-        ) : (
-          <>
-            <span className={`text-sm font-medium ${node.isActive ? "" : "text-[var(--color-muted)] line-through"}`}>
+  return (
+    <div className="px-3 py-2.5">
+      {editing ? (
+        <div className="flex flex-wrap items-center gap-2" style={{ marginLeft: indent }}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 w-40" />
+          <Button size="sm" onClick={saveName} disabled={pending}>
+            Salvar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            Cancelar
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5" style={{ marginLeft: indent }}>
+            <button
+              onClick={onToggleCollapse}
+              className={`shrink-0 text-xs text-[var(--color-muted)] ${hasChildren ? "" : "invisible"}`}
+              aria-label={collapsed ? "Expandir" : "Recolher"}
+            >
+              {collapsed ? "▸" : "▾"}
+            </button>
+            <span
+              className={`min-w-0 flex-1 truncate text-sm font-medium ${
+                node.isActive ? "" : "text-[var(--color-muted)] line-through"
+              }`}
+            >
               {node.name}
             </span>
             {!node.isActive && <Badge>Inativa</Badge>}
-            <span className="text-xs text-[var(--color-muted)]">{node.mediaCount} mídia(s)</span>
-            <div className="ml-auto flex shrink-0 gap-0.5">
-              <Button size="sm" variant="ghost" onClick={onStartAdd} disabled={pending} title="Adicionar subcategoria">
-                + Sub
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(true)} disabled={pending}>
-                Editar
-              </Button>
-              <Button size="sm" variant="ghost" onClick={toggleActive} disabled={pending}>
-                {node.isActive ? "Desativar" : "Ativar"}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={remove} disabled={pending}>
-                Excluir
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+            <span className="shrink-0 text-xs text-[var(--color-muted)]">{node.mediaCount}</span>
+          </div>
+
+          <div className="mt-1.5 flex flex-wrap gap-1 pl-5" style={{ marginLeft: indent }}>
+            <Button size="sm" variant="secondary" onClick={onStartAdd} disabled={pending}>
+              + Subcategoria
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)} disabled={pending}>
+              Editar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={toggleActive} disabled={pending}>
+              {node.isActive ? "Desativar" : "Ativar"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={remove} disabled={pending}>
+              Excluir
+            </Button>
+          </div>
+        </>
+      )}
 
       {adding && (
-        <form onSubmit={addSub} className="flex gap-2 pb-3" style={{ paddingLeft: 32 + node.depth * 20, paddingRight: 12 }}>
+        <form
+          onSubmit={addSub}
+          className="mt-2 flex flex-wrap gap-2 pl-5"
+          style={{ marginLeft: indent }}
+        >
           <Input
             autoFocus
             value={subName}
             onChange={(e) => setSubName(e.target.value)}
-            placeholder={`Subcategoria de "${node.name}" (ex.: Pizzas, Frango…)`}
+            placeholder={`Subcategoria de "${node.name}"`}
             maxLength={40}
-            className="h-8"
+            className="h-8 w-full sm:w-56"
           />
           <Button size="sm" type="submit" disabled={pending}>
             Criar
