@@ -74,6 +74,22 @@ export function CalendarClient({
   const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(firstOfMonth);
   const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
+  // Mobile: agenda vertical (só os dias com publicação) — sem rolagem horizontal.
+  const agendaDays = useMemo(() => {
+    const out: { key: string; day: number; weekday: string; posts: CalPost[] }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const dp = byDay.get(key);
+      if (dp && dp.length) {
+        const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "short", timeZone: "UTC" }).format(
+          new Date(Date.UTC(year, month - 1, d)),
+        );
+        out.push({ key, day: d, weekday, posts: dp });
+      }
+    }
+    return out;
+  }, [byDay, year, month, daysInMonth]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -91,7 +107,56 @@ export function CalendarClient({
         </Button>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Mobile: agenda em lista */}
+      <div className="space-y-2 md:hidden">
+        {agendaDays.length === 0 ? (
+          <p className="rounded-[var(--radius)] border bg-[var(--color-surface)] p-4 text-center text-sm text-[var(--color-muted)]">
+            Nada agendado em <span className="capitalize">{monthLabel}</span>.
+          </p>
+        ) : (
+          agendaDays.map(({ key, day, weekday, posts: dayPosts }) => (
+            <div key={key} className="overflow-hidden rounded-[var(--radius)] border bg-[var(--color-surface)]">
+              <div className="flex items-center justify-between border-b bg-[var(--color-bg)] px-3 py-2">
+                <span className="text-sm font-semibold">
+                  <span className={key === todayKey ? "text-[var(--color-primary)]" : ""}>{day}</span>
+                  <span className="ml-1.5 text-xs font-normal capitalize text-[var(--color-muted)]">
+                    {weekday}
+                    {key === todayKey ? " · hoje" : ""}
+                  </span>
+                </span>
+                <button
+                  onClick={() => setCreating(key)}
+                  className="text-xs font-medium text-[var(--color-primary)]"
+                >
+                  + Agendar
+                </button>
+              </div>
+              <ul className="divide-y">
+                {dayPosts.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      onClick={() => setSelected(p)}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-black/5"
+                    >
+                      <MediaThumb id={p.mediaId} type={p.mediaType} className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{p.mediaName}</span>
+                        <span className="block text-xs text-[var(--color-muted)]">
+                          {formatTime(p.scheduledAt, timezone)} · {POST_STATUS_LABEL[p.status]}
+                        </span>
+                      </span>
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor(p.status)}`} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: grade do mês */}
+      <div className="hidden overflow-x-auto md:block">
         <div className="grid min-w-[720px] grid-cols-7 gap-px rounded-[var(--radius)] border bg-[var(--color-border)]">
           {WEEKDAYS.map((w) => (
             <div key={w} className="bg-[var(--color-surface)] p-2 text-center text-xs font-medium text-[var(--color-muted)]">
