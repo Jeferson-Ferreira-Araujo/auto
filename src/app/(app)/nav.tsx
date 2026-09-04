@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/calendario", label: "Calendário", icon: "▤" },
   { href: "/automacoes", label: "Automações", icon: "↻" },
   { href: "/instagram", label: "Instagram", icon: "◎" },
+  { href: "/dashboard?view=desempenho", label: "Desempenho", icon: "📈" },
   { href: "/calendario?view=lista", label: "Histórico", icon: "≣" },
   { href: "/configuracoes", label: "Configurações", icon: "⚙" },
 ];

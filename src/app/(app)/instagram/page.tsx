@@ -50,6 +50,14 @@ export default async function InstagramPage({
         </div>
       )}
 
+      {account && account.status === "CONNECTED" && !account.insightsSyncedAt && (
+        <div className="mb-4 rounded-[var(--radius)] border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <strong>Relatórios de desempenho:</strong> reconecte uma vez para autorizar o acesso às
+          métricas do Instagram (visualizações, alcance, seguidores). Suas publicações continuam
+          funcionando normalmente enquanto isso.
+        </div>
+      )}
+
       {!account ? (
         <EmptyState
           title="Nenhuma conta conectada"

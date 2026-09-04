@@ -1,0 +1,13 @@
+ALTER TABLE "instagram_accounts" ADD COLUMN "insightsSyncedAt" TIMESTAMP(3), ADD COLUMN "insightsError" TEXT;
+CREATE TABLE "account_insight_days" ("id" TEXT NOT NULL,"organizationId" TEXT NOT NULL,"instagramAccountId" TEXT NOT NULL,"date" DATE NOT NULL,"reach" INTEGER NOT NULL DEFAULT 0,"views" INTEGER NOT NULL DEFAULT 0,"followerDelta" INTEGER NOT NULL DEFAULT 0,"followersTotal" INTEGER,"profileViews" INTEGER,"syncedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "account_insight_days_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "account_insight_days_instagramAccountId_date_key" ON "account_insight_days"("instagramAccountId","date");
+CREATE INDEX "account_insight_days_organizationId_date_idx" ON "account_insight_days"("organizationId","date");
+ALTER TABLE "account_insight_days" ADD CONSTRAINT "account_insight_days_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "account_insight_days" ADD CONSTRAINT "account_insight_days_instagramAccountId_fkey" FOREIGN KEY ("instagramAccountId") REFERENCES "instagram_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE "media_insights" ("id" TEXT NOT NULL,"organizationId" TEXT NOT NULL,"instagramAccountId" TEXT NOT NULL,"instagramMediaId" TEXT NOT NULL,"scheduledPostId" TEXT,"mediaType" TEXT NOT NULL,"mediaProductType" TEXT NOT NULL,"permalink" TEXT,"thumbnailUrl" TEXT,"publishedAt" TIMESTAMP(3) NOT NULL,"reach" INTEGER NOT NULL DEFAULT 0,"views" INTEGER NOT NULL DEFAULT 0,"likes" INTEGER NOT NULL DEFAULT 0,"comments" INTEGER NOT NULL DEFAULT 0,"shares" INTEGER NOT NULL DEFAULT 0,"saved" INTEGER NOT NULL DEFAULT 0,"totalInteractions" INTEGER NOT NULL DEFAULT 0,"lastSyncedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "media_insights_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "media_insights_instagramMediaId_key" ON "media_insights"("instagramMediaId");
+CREATE UNIQUE INDEX "media_insights_scheduledPostId_key" ON "media_insights"("scheduledPostId");
+CREATE INDEX "media_insights_organizationId_publishedAt_idx" ON "media_insights"("organizationId","publishedAt");
+ALTER TABLE "media_insights" ADD CONSTRAINT "media_insights_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "media_insights" ADD CONSTRAINT "media_insights_instagramAccountId_fkey" FOREIGN KEY ("instagramAccountId") REFERENCES "instagram_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "media_insights" ADD CONSTRAINT "media_insights_scheduledPostId_fkey" FOREIGN KEY ("scheduledPostId") REFERENCES "scheduled_posts"("id") ON DELETE SET NULL ON UPDATE CASCADE;

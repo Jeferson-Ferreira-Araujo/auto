@@ -5,6 +5,7 @@ import { runGenerate } from "@/lib/scheduler/generate";
 import { runPublish } from "@/lib/scheduler/publish";
 import { runRefreshTokens } from "@/lib/scheduler/refresh-tokens";
 import { VideoProcessingService } from "@/lib/video/service";
+import { InstagramInsightsService } from "@/lib/instagram/insights";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,8 +27,12 @@ async function handle(req: NextRequest) {
         return NextResponse.json({ ok: true, job, ...(await runRefreshTokens()) });
       case "video-recover":
         return NextResponse.json({ ok: true, job, ...(await VideoProcessingService.retryStuck()) });
+      case "sync-insights":
+        return NextResponse.json({ ok: true, job, ...(await InstagramInsightsService.syncAll()) });
       default:
-        throw validation("Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover).");
+        throw validation(
+          "Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover | sync-insights).",
+        );
     }
   } catch (err) {
     return toErrorResponse(err);

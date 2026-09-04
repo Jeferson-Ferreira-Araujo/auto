@@ -6,11 +6,21 @@ import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
 import { AutoPublishToggle } from "@/components/AutoPublishToggle";
 import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatDateTime } from "@/lib/display";
 import { CreateOrgForm } from "./CreateOrgForm";
+import { PerformanceView } from "./PerformanceView";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; range?: string; from?: string; to?: string }>;
+}) {
+  const sp = await searchParams;
   const ctx = await getOptionalOrgContext();
+
+  if (sp.view === "desempenho" && ctx) {
+    return <PerformanceView org={ctx.org} sp={sp} />;
+  }
 
   // Estado 1: sem empresa → criar
   if (!ctx) {

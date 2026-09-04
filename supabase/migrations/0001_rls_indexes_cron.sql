@@ -16,7 +16,8 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'users','organizations','organization_members','instagram_accounts',
-    'media_categories','media_assets','automations','scheduled_posts','publication_logs'
+    'media_categories','media_assets','automations','scheduled_posts','publication_logs',
+    'account_insight_days','media_insights'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated;', t);
@@ -69,3 +70,4 @@ SELECT cron.schedule('instapub_generate',        '*/15 * * * *', $$SELECT privat
 SELECT cron.schedule('instapub_publish',         '* * * * *',    $$SELECT private.call_cron('publish')$$);
 SELECT cron.schedule('instapub_refresh_tokens',  '0 6 * * *',    $$SELECT private.call_cron('refresh-tokens')$$);
 SELECT cron.schedule('automidia_video_recover',  '*/10 * * * *', $$SELECT private.call_cron('video-recover')$$);
+SELECT cron.schedule('automidia_sync_insights',  '0 */3 * * *',  $$SELECT private.call_cron('sync-insights')$$);

@@ -13,7 +13,11 @@ const OAUTH_TOKEN = "https://api.instagram.com/oauth/access_token";
 const GRAPH = "https://graph.instagram.com";
 const API_VERSION = "v23.0";
 
-const SCOPES = ["instagram_business_basic", "instagram_business_content_publish"];
+const SCOPES = [
+  "instagram_business_basic",
+  "instagram_business_content_publish",
+  "instagram_business_manage_insights",
+];
 
 const log = childLogger({ mod: "InstagramService" });
 
@@ -227,5 +231,120 @@ export const InstagramService = {
     };
     const row = res.data?.[0];
     return { quotaUsage: row?.quota_usage ?? 0, quotaTotal: row?.config?.quota_total ?? 100 };
+  },
+
+  // ─────────────── Insights (área Desempenho) ───────────────
+
+  /** Campos básicos de uma mídia (não exige escopo de insights). */
+  async getMediaFields(accessToken: string, mediaId: string) {
+    const url = new URL(`${GRAPH}/${API_VERSION}/${mediaId}`);
+    url.searchParams.set(
+      "fields",
+      "id,media_type,media_product_type,permalink,thumbnail_url,media_url,timestamp,like_count,comments_count,caption",
+    );
+    url.searchParams.set("access_token", accessToken);
+    return (await parseMetaResponse(await fetch(url))) as {
+      id: string;
+      media_type: string;
+      media_product_type?: string;
+      permalink?: string;
+      thumbnail_url?: string;
+      media_url?: string;
+      timestamp: string;
+      like_count?: number;
+      comments_count?: number;
+    };
+  },
+
+  /** Insights de uma mídia. Métricas indisponíveis para o tipo são simplesmente omitidas. */
+  async getMediaInsights(
+    accessToken: string,
+    mediaId: string,
+    metrics: string[],
+  ): Promise<Record<string, number>> {
+    const url = new URL(`${GRAPH}/${API_VERSION}/${mediaId}/insights`);
+    url.searchParams.set("metric", metrics.join(","));
+    url.searchParams.set("access_token", accessToken);
+    try {
+      const res = (await parseMetaResponse(await fetch(url))) as {
+        data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+      };
+      const out: Record<string, number> = {};
+      for (const d of res.data ?? []) out[d.name] = d.values?.[0]?.value ?? 0;
+      return out;
+    } catch {
+      // Alguns tipos de mídia recusam certas métricas — tenta uma por uma.
+      const out: Record<string, number> = {};
+      for (const m of metrics) {
+        try {
+          const u = new URL(`${GRAPH}/${API_VERSION}/${mediaId}/insights`);
+          u.searchParams.set("metric", m);
+          u.searchParams.set("access_token", accessToken);
+          const r = (await parseMetaResponse(await fetch(u))) as {
+            data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+          };
+          if (r.data?.[0]) out[m] = r.data[0].values?.[0]?.value ?? 0;
+        } catch {
+          /* métrica indisponível — ignora */
+        }
+      }
+      return out;
+    }
+  },
+
+  /**
+   * Insights diários da conta para [since, until] (Date). Retorna um mapa
+   * metric -> (yyyy-mm-dd -> valor).
+   */
+  async getAccountInsights(
+    accessToken: string,
+    igUserId: string,
+    metrics: string[],
+    since: Date,
+    until: Date,
+  ): Promise<Record<string, Record<string, number>>> {
+    const url = new URL(`${GRAPH}/${API_VERSION}/${igUserId}/insights`);
+    url.searchParams.set("metric", metrics.join(","));
+    url.searchParams.set("period", "day");
+    url.searchParams.set("metric_type", "total_value");
+    url.searchParams.set("since", String(Math.floor(since.getTime() / 1000)));
+    url.searchParams.set("until", String(Math.floor(until.getTime() / 1000)));
+    url.searchParams.set("access_token", accessToken);
+    const res = (await parseMetaResponse(await fetch(url))) as {
+      data?: Array<{
+        name: string;
+        values?: Array<{ value: number; end_time?: string }>;
+        total_value?: { value: number };
+      }>;
+    };
+    const untilDay = until.toISOString().slice(0, 10);
+    const out: Record<string, Record<string, number>> = {};
+    for (const d of res.data ?? []) {
+      out[d.name] = {};
+      const vals = d.values ?? [];
+      if (vals.length > 0) {
+        for (const v of vals) {
+          const day = (v.end_time ?? "").slice(0, 10);
+          if (day) out[d.name][day] = v.value ?? 0;
+        }
+      } else if (d.total_value) {
+        // API retornou só o agregado do período — atribui ao último dia.
+        out[d.name][untilDay] = d.total_value.value ?? 0;
+      }
+    }
+    return out;
+  },
+
+  /** followers_count atual (campo do usuário). */
+  async getFollowersCount(accessToken: string): Promise<number | null> {
+    const url = new URL(`${GRAPH}/${API_VERSION}/me`);
+    url.searchParams.set("fields", "followers_count");
+    url.searchParams.set("access_token", accessToken);
+    try {
+      const res = (await parseMetaResponse(await fetch(url))) as { followers_count?: number };
+      return res.followers_count ?? null;
+    } catch {
+      return null;
+    }
   },
 };

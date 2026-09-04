@@ -136,6 +136,8 @@ model Organization {
   publicationLogs   PublicationLog[]
   whatsappContacts  WhatsAppContact[]
   videoJobs         VideoJob[]
+  accountInsightDays AccountInsightDay[]
+  mediaInsights      MediaInsight[]
 
   @@map("organizations")
 }
@@ -169,14 +171,18 @@ model InstagramAccount {
   lastRefreshedAt   DateTime                  @default(now())
   status            InstagramConnectionStatus @default(CONNECTED)
   connectedByUserId String?                   @db.Uuid
+  insightsSyncedAt  DateTime?
+  insightsError     String?
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   connectedBy  User?        @relation("InstagramConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
 
-  automations    Automation[]
-  scheduledPosts ScheduledPost[]
+  automations        Automation[]
+  scheduledPosts     ScheduledPost[]
+  accountInsightDays AccountInsightDay[]
+  mediaInsights      MediaInsight[]
 
   // MVP: 1 conta por organização. Remover para permitir múltiplas.
   @@unique([organizationId])
@@ -313,6 +319,7 @@ model ScheduledPost {
   automation       Automation?      @relation(fields: [automationId], references: [id], onDelete: SetNull)
 
   publicationLogs PublicationLog[]
+  mediaInsight    MediaInsight?
 
   @@unique([automationId, occurrenceKey])
   @@index([status, scheduledAt])
@@ -418,4 +425,56 @@ model VideoJob {
   @@index([status, createdAt])
   @@index([mediaAssetId])
   @@map("video_jobs")
+}
+
+// ─────────────────────────── Insights do Instagram (área Desempenho) ───────────────────────────
+
+/// Snapshot diário de métricas da conta (1 linha por conta por dia).
+model AccountInsightDay {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  instagramAccountId String
+  date               DateTime @db.Date
+  reach              Int      @default(0)
+  views              Int      @default(0)
+  followerDelta      Int      @default(0)
+  followersTotal     Int?
+  profileViews       Int?
+  syncedAt           DateTime @default(now())
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instagramAccount InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([instagramAccountId, date])
+  @@index([organizationId, date])
+  @@map("account_insight_days")
+}
+
+/// Métricas de uma publicação (1 linha por mídia do Instagram).
+model MediaInsight {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  instagramAccountId String
+  instagramMediaId   String   @unique
+  scheduledPostId    String?  @unique
+  mediaType          String
+  mediaProductType   String
+  permalink          String?
+  thumbnailUrl       String?
+  publishedAt        DateTime
+  reach              Int      @default(0)
+  views              Int      @default(0)
+  likes              Int      @default(0)
+  comments           Int      @default(0)
+  shares             Int      @default(0)
+  saved              Int      @default(0)
+  totalInteractions  Int      @default(0)
+  lastSyncedAt       DateTime @default(now())
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instagramAccount InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
+  scheduledPost    ScheduledPost?   @relation(fields: [scheduledPostId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, publishedAt])
+  @@map("media_insights")
 }
