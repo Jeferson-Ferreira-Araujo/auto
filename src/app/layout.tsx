@@ -3,7 +3,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
-  title: "InstaPub — automação de publicações no Instagram",
+  title: "AUTOMIDIA — automação de publicações no Instagram",
   description: "Envie conteúdos, organize em categorias e deixe o sistema publicar no Instagram por você.",
 };
 
