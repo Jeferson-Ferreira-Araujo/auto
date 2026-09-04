@@ -34,6 +34,9 @@ export function VideoEnhancer({
   const [stripAudio, setStripAudio] = useState(false);
   const [job, setJob] = useState<JobState>(null);
   const [variant, setVariant] = useState<"ORIGINAL" | "ENHANCED">(item.publishVariant);
+  const [hasEnhanced, setHasEnhanced] = useState(item.hasEnhanced);
+  // força recarregar o <video> da versão melhorada quando um novo resultado fica pronto
+  const [enhancedRev, setEnhancedRev] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Poll enquanto o job estiver ativo.
@@ -48,6 +51,8 @@ export function VideoEnhancer({
       setJob(res.data);
       if (res.data.status === "COMPLETED") {
         toast.push("Vídeo melhorado pronto!", "success");
+        setHasEnhanced(true);
+        setEnhancedRev((r) => r + 1);
         onChanged();
       } else if (res.data.status === "FAILED") {
         toast.push(res.data.errorMessage ?? "Não foi possível melhorar o vídeo.", "error");
@@ -93,6 +98,8 @@ export function VideoEnhancer({
       const res = await revertVideoToOriginal({ mediaAssetId: item.id });
       if (!res.ok) return toast.push(res.error.message, "error");
       setJob(null);
+      setHasEnhanced(false);
+      setVariant("ORIGINAL");
       toast.push("Voltou para o vídeo original.", "success");
       onChanged();
     });
@@ -105,7 +112,7 @@ export function VideoEnhancer({
       <div className="mb-2 text-sm font-medium">Melhorar para Reels</div>
 
       {/* já existe versão melhorada */}
-      {item.hasEnhanced && !active && (
+      {hasEnhanced && !active && (
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <figure>
@@ -116,7 +123,12 @@ export function VideoEnhancer({
             <figure>
               <figcaption className="mb-1 text-xs text-[var(--color-muted)]">Melhorada</figcaption>
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <video src={mediaUrl(item.id, "enhanced")} controls className="w-full rounded border" />
+              <video
+                key={enhancedRev}
+                src={`${mediaUrl(item.id, "enhanced")}${enhancedRev ? `&r=${enhancedRev}` : ""}`}
+                controls
+                className="w-full rounded border"
+              />
             </figure>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -237,7 +249,7 @@ export function VideoEnhancer({
             </span>
           </label>
           <Button onClick={enhance} disabled={pending || (!auto && !preset)} className="w-full">
-            {item.hasEnhanced ? "Refazer" : "Melhorar vídeo"}
+            {hasEnhanced ? "Refazer" : "Melhorar vídeo"}
           </Button>
         </div>
       )}
