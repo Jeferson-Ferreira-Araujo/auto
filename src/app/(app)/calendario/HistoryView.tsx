@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { Prisma, PostStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { Badge, Card, EmptyState } from "@/components/ui/primitives";
-import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatDateTime } from "@/lib/display";
+import { POST_STATUS_LABEL, POST_STATUS_TONE, formatDateTime } from "@/lib/display";
+import { MediaThumb } from "@/components/MediaThumb";
 
 export type HistoryFilters = {
   view?: string;
@@ -123,8 +124,7 @@ export async function HistoryView({
                   <tr key={p.id} className="border-b last:border-0">
                     <td className="p-3">
                       <div className="flex items-center gap-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={mediaUrl(p.mediaAsset.id, "thumb")} alt="" className="h-8 w-8 rounded object-cover" />
+                        <MediaThumb id={p.mediaAsset.id} type={p.mediaAsset.type} className="h-8 w-8 rounded object-cover" />
                         <span className="block max-w-40 truncate">{p.mediaAsset.name}</span>
                       </div>
                     </td>

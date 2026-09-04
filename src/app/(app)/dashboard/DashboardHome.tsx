@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { Card, CardBody } from "@/components/ui/primitives";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { AutoPublishToggle } from "@/components/AutoPublishToggle";
-import { POST_STATUS_LABEL, POST_STATUS_TONE, WEEKDAY_SHORT, mediaUrl, formatTime } from "@/lib/display";
+import { POST_STATUS_LABEL, POST_STATUS_TONE, WEEKDAY_SHORT, formatTime } from "@/lib/display";
+import { MediaThumb } from "@/components/MediaThumb";
 import { InstagramInsightsService } from "@/lib/instagram/insights";
 import { resolveRange } from "@/lib/insights/range";
 import { formatNumber } from "@/lib/insights/report";
@@ -99,7 +100,7 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
       prisma.scheduledPost.findMany({
         where: { organizationId: org.id, status: { in: ["SCHEDULED", "PROCESSING"] } },
         include: {
-          mediaAsset: { select: { id: true, name: true } },
+          mediaAsset: { select: { id: true, name: true, type: true } },
           automation: { select: { category: { select: { name: true } } } },
         },
         orderBy: { scheduledAt: "asc" },
@@ -107,7 +108,7 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
       }),
       prisma.scheduledPost.findMany({
         where: { organizationId: org.id, scheduledAt: { gte: weekStart, lt: weekEnd } },
-        include: { mediaAsset: { select: { id: true, name: true } } },
+        include: { mediaAsset: { select: { id: true, name: true, type: true } } },
         orderBy: { scheduledAt: "asc" },
       }),
       prisma.automation.findMany({
@@ -272,10 +273,9 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
                         </div>
                         {formatTime(p.scheduledAt, tz)}
                       </div>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={mediaUrl(p.mediaAsset.id, "thumb")}
-                        alt=""
+                      <MediaThumb
+                        id={p.mediaAsset.id}
+                        type={p.mediaAsset.type}
                         className="h-11 w-11 shrink-0 rounded-lg object-cover"
                       />
                       <div className="min-w-0 flex-1">
@@ -351,10 +351,9 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
                       <span className="w-10 shrink-0 text-xs font-medium text-[var(--color-muted)]">
                         {formatTime(p.scheduledAt, tz)}
                       </span>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={mediaUrl(p.mediaAsset.id, "thumb")}
-                        alt=""
+                      <MediaThumb
+                        id={p.mediaAsset.id}
+                        type={p.mediaAsset.type}
                         className="h-9 w-9 shrink-0 rounded-md object-cover"
                       />
                       <span className="min-w-0 flex-1 truncate text-xs font-medium">{p.mediaAsset.name}</span>

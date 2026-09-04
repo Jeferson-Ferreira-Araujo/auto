@@ -7,6 +7,7 @@ import { Badge, Card, CardBody, EmptyState, Field, Input, Select, Textarea } fro
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { mediaUrl, formatDateTime } from "@/lib/display";
+import { MediaThumb } from "@/components/MediaThumb";
 import { deleteMedia, updateMedia, reprocessMedia } from "./actions";
 import { VideoEnhancer } from "./VideoEnhancer";
 
@@ -132,8 +133,12 @@ function MediaCard({ item, now, onOpen }: { item: MediaItem; now: number; onOpen
     <Card className="overflow-hidden">
       <button onClick={onOpen} className="block w-full text-left">
         <div className="relative aspect-square bg-[var(--color-bg)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={mediaUrl(item.id, "thumb")} alt={item.name} className="h-full w-full object-cover" />
+          <MediaThumb id={item.id} type={item.type} alt={item.name} className="h-full w-full object-cover" />
+          {item.type === "VIDEO" && (
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white">▶</span>
+            </span>
+          )}
           <span className="absolute left-1.5 top-1.5">
             <Badge tone={item.type === "VIDEO" ? "info" : "neutral"}>{item.type === "VIDEO" ? "Vídeo" : "Imagem"}</Badge>
           </span>

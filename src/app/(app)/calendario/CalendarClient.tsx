@@ -9,6 +9,7 @@ import { Badge, Field, Select, Textarea } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatTime, formatDateTime } from "@/lib/display";
+import { MediaThumb } from "@/components/MediaThumb";
 import { cancelScheduledPost, createManualPost, updateScheduledPost } from "./actions";
 
 export type CalPost = {
@@ -123,8 +124,7 @@ export function CalendarClient({
                           onClick={() => setSelected(p)}
                           className="flex w-full items-center gap-1 rounded bg-[var(--color-bg)] p-1 text-left text-xs hover:bg-black/5"
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={mediaUrl(p.mediaId, "thumb")} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+                          <MediaThumb id={p.mediaId} type={p.mediaType} className="h-6 w-6 shrink-0 rounded object-cover" />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate">{formatTime(p.scheduledAt, timezone)} {p.mediaName}</span>
                           </span>
@@ -384,8 +384,12 @@ function NewPost({
       </Field>
       {mediaId && (
         <div className="mb-4 overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={mediaUrl(mediaId, "preview")} alt="" className="max-h-52 w-full object-contain" />
+          {media.find((m) => m.id === mediaId)?.type === "VIDEO" ? (
+            <video src={mediaUrl(mediaId, "preview")} controls className="max-h-52 w-full" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={mediaUrl(mediaId, "preview")} alt="" className="max-h-52 w-full object-contain" />
+          )}
         </div>
       )}
       <Field label="Data e hora">
