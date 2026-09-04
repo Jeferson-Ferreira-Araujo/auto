@@ -54,11 +54,9 @@ export const InstagramInsightsService = {
     let token: string;
     try {
       token = await getValidAccessToken(account);
-    } catch {
-      await prisma.instagramAccount.update({
-        where: { id: account.id },
-        data: { insightsError: "reconnect" },
-      });
+    } catch (err) {
+      log.warn({ accountId: account.id, err }, "token inválido para insights");
+      await setErr(account.id, "reconnect: não foi possível validar o acesso ao Instagram");
       return;
     }
 
@@ -70,19 +68,30 @@ export const InstagramInsightsService = {
         data: { insightsSyncedAt: new Date(), insightsError: null },
       });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.warn({ accountId: account.id, org: account.organizationId, msg }, "sync de insights falhou");
       if (isAuthError(err) || isPermissionError(err)) {
-        await prisma.instagramAccount.update({
-          where: { id: account.id },
-          data: { insightsError: "reconnect" },
-        });
-        return;
+        await setErr(account.id, `reconnect: ${msg}`);
+      } else {
+        await setErr(account.id, `erro: ${msg}`);
       }
-      throw err;
     }
   },
 
   getReport,
 };
+
+async function setErr(accountId: string, message: string): Promise<void> {
+  await prisma.instagramAccount.update({
+    where: { id: accountId },
+    data: { insightsError: message.slice(0, 400) },
+  });
+}
+
+/** true se a conta precisa reconectar para habilitar os relatórios. */
+export function insightsNeedsReconnect(insightsError: string | null): boolean {
+  return !!insightsError && insightsError.startsWith("reconnect");
+}
 
 function isPermissionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
@@ -272,7 +281,7 @@ async function getReport(orgId: string, range: RangeInput): Promise<Report> {
     sentences: [],
   };
 
-  if (!account || !account.insightsSyncedAt || account.insightsError === "reconnect") {
+  if (!account || !account.insightsSyncedAt || insightsNeedsReconnect(account.insightsError)) {
     return empty;
   }
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
 import { formatDateTime, daysUntil } from "@/lib/display";
+import { insightsNeedsReconnect } from "@/lib/instagram/insights";
 import { DisconnectButton } from "./DisconnectButton";
 import { startInstagramConnect } from "./actions";
 
@@ -50,11 +51,17 @@ export default async function InstagramPage({
         </div>
       )}
 
-      {account && account.status === "CONNECTED" && !account.insightsSyncedAt && (
+      {account && account.status === "CONNECTED" && insightsNeedsReconnect(account.insightsError) && (
+        <div className="mb-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <strong>Relatórios de desempenho:</strong> a autorização de métricas não foi concedida. Clique
+          em <strong>Reconectar</strong> e, na tela do Instagram, mantenha <em>todas</em> as permissões
+          marcadas (inclusive a de acessar insights). Suas publicações continuam funcionando.
+        </div>
+      )}
+      {account && account.status === "CONNECTED" && !account.insightsSyncedAt && !insightsNeedsReconnect(account.insightsError) && (
         <div className="mb-4 rounded-[var(--radius)] border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-          <strong>Relatórios de desempenho:</strong> reconecte uma vez para autorizar o acesso às
-          métricas do Instagram (visualizações, alcance, seguidores). Suas publicações continuam
-          funcionando normalmente enquanto isso.
+          <strong>Relatórios de desempenho:</strong> preparando os primeiros dados — em alguns minutos
+          aparecem em <strong>Desempenho</strong>.
         </div>
       )}
 

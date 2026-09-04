@@ -59,6 +59,9 @@ export async function GET(req: NextRequest) {
         lastRefreshedAt: new Date(),
         status: "CONNECTED",
         connectedByUserId: user.id,
+        // Reconectou → limpa o estado dos relatórios para uma nova tentativa limpa.
+        insightsError: null,
+        insightsSyncedAt: null,
       },
     });
 

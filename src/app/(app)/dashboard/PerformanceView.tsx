@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
-import { InstagramInsightsService } from "@/lib/instagram/insights";
+import { prisma } from "@/lib/db";
+import { InstagramInsightsService, insightsNeedsReconnect } from "@/lib/instagram/insights";
 import { resolveRange } from "@/lib/insights/range";
+import { SyncInsightsButton } from "./SyncInsightsButton";
 import {
   deltaTone,
   formatDelta,
@@ -85,21 +87,46 @@ export async function PerformanceView({
   );
 
   if (report.status === "not_connected") {
+    const account = await prisma.instagramAccount.findUnique({
+      where: { organizationId: org.id },
+      select: { status: true, insightsError: true, insightsSyncedAt: true },
+    });
+    const connected = account?.status === "CONNECTED";
+    const needsReconnect = insightsNeedsReconnect(account?.insightsError ?? null);
+
+    let empty;
+    if (!connected) {
+      empty = (
+        <EmptyState
+          icon="📊"
+          title="Conecte o Instagram"
+          description="Conecte uma conta profissional para ver os relatórios de desempenho."
+          action={<Link href="/instagram" className="text-sm font-medium text-[var(--color-primary)]">Ir para Instagram</Link>}
+        />
+      );
+    } else if (needsReconnect) {
+      empty = (
+        <EmptyState
+          icon="🔒"
+          title="Autorize o acesso às métricas"
+          description="Ao reconectar, mantenha TODAS as permissões marcadas na tela do Instagram — inclusive a de acessar insights."
+          action={<Link href="/instagram" className="text-sm font-medium text-[var(--color-primary)]">Reconectar Instagram</Link>}
+        />
+      );
+    } else {
+      empty = (
+        <EmptyState
+          icon="⏳"
+          title="Preparando seus relatórios"
+          description="Os dados são sincronizados automaticamente a cada poucas horas. Quer ver agora?"
+          action={<SyncInsightsButton />}
+        />
+      );
+    }
     return (
       <>
         {header}
-        <div className="mt-6">
-          <EmptyState
-            icon="📊"
-            title="Ative os relatórios de desempenho"
-            description="Reconecte seu Instagram uma vez para autorizar o acesso às métricas. É rápido e não interrompe suas publicações."
-            action={
-              <Link href="/instagram" className="text-sm font-medium text-[var(--color-primary)]">
-                Reconectar Instagram
-              </Link>
-            }
-          />
-        </div>
+        <div className="mt-6">{empty}</div>
       </>
     );
   }
