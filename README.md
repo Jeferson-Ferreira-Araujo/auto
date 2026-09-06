@@ -252,7 +252,7 @@ Trigger manual em produção: `SELECT private.call_cron('publish');` no SQL do S
 
 ## 7. Deploy na Vercel
 
-> **Produção atual:** https://automidia.vercel.app
+> **Produção atual:** https://autora-dashboard.vercel.app
 > Repositório: https://github.com/Jeferson-Ferreira-Araujo/auto (todo `git push` na `main` redeploya).
 >
 > **Limite do plano Hobby:** máximo **12 Serverless Functions** por deploy. As rotas já foram
