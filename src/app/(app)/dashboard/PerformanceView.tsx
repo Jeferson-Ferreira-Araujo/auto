@@ -139,7 +139,7 @@ export async function PerformanceView({
           <EmptyState
             icon="🗓️"
             title="Nenhuma publicação neste período"
-            description="Quando você publicar pela AUTOMIDIA, os números aparecem aqui."
+            description="Quando você publicar pela AUTORA, os números aparecem aqui."
           />
         </div>
       </>

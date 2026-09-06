@@ -1,4 +1,9 @@
-# InstaPub — automação de publicações no Instagram (MVP)
+# AUTORA — seu negócio no automático
+
+Plataforma modular de automação para pequenos negócios. Módulos: **Produtos** (validades) e
+**Marketing** (publicação/agendamento no Instagram). Filosofia: detectar → avisar → sugerir → executar.
+
+_(pacote npm: `instapub-mvp` — nome técnico mantido para não quebrar lockfile/deploy.)_
 
 SaaS multiempresa onde uma empresa **envia mídias → organiza em categorias → agenda (manual ou automação) → o sistema publica sozinho no Instagram no horário → registra no histórico**.
 
@@ -128,7 +133,7 @@ mensagem clara para o usuário reenviar em formato correto.
 
 ## 4b. WhatsApp Cloud API (opcional — controle por mensagem)
 
-O dono da empresa pode comandar a NEZZA pelo WhatsApp: *pausar/ativar automações*, *"o que está
+O dono da empresa pode comandar a AUTORA pelo WhatsApp: *pausar/ativar automações*, *"o que está
 programado para amanhã?"*, *"cancelar publicações de hoje"*, e **agendar enviando uma foto** com a
 legenda `Poste amanhã às 18h / Legenda: ...`. Toda comunicação passa por `src/lib/whatsapp/service.ts`
 (`WhatsAppService`); o parser de comandos (`src/lib/whatsapp/parser.ts`) é determinístico e fica atrás
@@ -145,7 +150,7 @@ de uma interface (`CommandParser`) para trocar por IA depois sem reescrever a in
    **System User** com token permanente (Business Settings → Users → System Users → Generate token,
    permissões `whatsapp_business_messaging` + `whatsapp_business_management`).
 
-**Vincular o número (usuário final):** NEZZA → **Configurações → WhatsApp** → informa o número →
+**Vincular o número (usuário final):** AUTORA → **Configurações → WhatsApp** → informa o número →
 recebe um código de 6 dígitos → envia o código para o número de teste → vinculado.
 
 **Segurança:** assinatura `X-Hub-Signature-256` validada em todo POST; idempotência por `wamid`
@@ -156,7 +161,7 @@ confirmação; credenciais só em env.
 
 ## 4c. Melhoria automática de vídeo para Reels (opcional)
 
-O usuário envia um vídeo simples e a AUTOMIDIA gera uma versão 9:16 pronta para Reels (fade, zoom
+O usuário envia um vídeo simples e a AUTORA gera uma versão 9:16 pronta para Reels (fade, zoom
 suave, cor, loudnorm, logo/título opcionais). Presets: **Natural / Dinâmico / Promoção / Elegante**
 ou **"Melhorar automaticamente"**. O original **nunca é apagado**; o processado fica ao lado e o
 usuário escolhe qual publicar (`publishVariant`, default `ORIGINAL`).

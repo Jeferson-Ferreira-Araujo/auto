@@ -16,8 +16,8 @@ import type { IncomingMessage, OutgoingMessage, ParsedCommand, PendingAction } f
 const log = childLogger({ mod: "whatsapp/inbound" });
 
 const NOT_LINKED =
-  "👋 Olá! Este número ainda não está vinculado a nenhuma empresa na AUTOMIDIA.\n\n" +
-  "Para vincular: entre na AUTOMIDIA → *Configurações → WhatsApp*, informe este número e envie aqui o código de 6 dígitos que aparecer.";
+  "👋 Olá! Este número ainda não está vinculado a nenhuma empresa na AUTORA.\n\n" +
+  "Para vincular: entre na AUTORA → *Configurações → WhatsApp*, informe este número e envie aqui o código de 6 dígitos que aparecer.";
 
 const CONFIRM_PENDINGS = new Set<PendingAction["type"]>([
   "CONFIRM_CANCEL_TODAY",

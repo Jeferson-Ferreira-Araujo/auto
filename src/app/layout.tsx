@@ -3,8 +3,9 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
-  title: "AUTOMIDIA — automação de publicações no Instagram",
-  description: "Envie conteúdos, organize em categorias e deixe o sistema publicar no Instagram por você.",
+  title: "AUTORA — seu negócio no automático",
+  description:
+    "Plataforma modular de automação para pequenos negócios: detecta o que precisa de atenção, avisa e resolve no automático.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

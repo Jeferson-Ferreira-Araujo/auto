@@ -20,7 +20,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
 export function AccountSuspended() {
   return (
     <Shell title="Conta suspensa">
-      Seu acesso à AUTOMIDIA foi suspenso. Entre em contato com o suporte para regularizar a situação.
+      Seu acesso à AUTORA foi suspenso. Entre em contato com o suporte para regularizar a situação.
     </Shell>
   );
 }
@@ -29,7 +29,7 @@ export function OrgSuspended({ orgName }: { orgName: string }) {
   return (
     <Shell title="Empresa suspensa">
       A empresa <strong>{orgName}</strong> está suspensa. As publicações automáticas estão pausadas e não
-      é possível fazer alterações. Fale com o suporte da AUTOMIDIA.
+      é possível fazer alterações. Fale com o suporte da AUTORA.
     </Shell>
   );
 }

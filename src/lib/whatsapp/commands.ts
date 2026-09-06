@@ -31,7 +31,7 @@ export function dayRange(
 }
 
 export const HELP_TEXT = [
-  "🤖 *AUTOMIDIA* — o que dá pra fazer por aqui:",
+  "🤖 *AUTORA* — o que dá pra fazer por aqui:",
   "",
   "• Envie uma *foto* ou *vídeo* e diga quando publicar (_“amanhã às 18h”_) ou _“publique agora”_",
   "• *o que tem hoje / amanhã / essa semana?*",

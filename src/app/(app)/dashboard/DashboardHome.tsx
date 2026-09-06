@@ -390,9 +390,9 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
       </div>
 
       {/* Dica */}
-      <div className="rounded-[var(--radius)] bg-gradient-to-br from-[var(--color-primary)] to-[#8b5cf6] p-5 text-white">
+      <div className="bg-gradient-brand rounded-[var(--radius)] p-5 text-white">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <Icon.sparkle width={18} height={18} /> Dica da AUTOMIDIA
+          <Icon.sparkle width={18} height={18} /> Dica da AUTORA
         </div>
         <p className="mt-1.5 max-w-2xl text-sm text-white/90">{tip}</p>
       </div>

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { Logo } from "@/components/Logo";
 import { signOut } from "@/app/session-actions";
 
 type NavItem = { href: string; label: string; icon: IconName; match?: (path: string, view: string | null) => boolean };
@@ -28,7 +29,7 @@ const ADMIN_ITEM: NavItem = {
   match: (p, v) => p === "/dashboard" && v === "admin",
 };
 
-const COLLAPSE_KEY = "automidia_sidebar_collapsed";
+const COLLAPSE_KEY = "autora_sidebar_collapsed";
 
 export function Sidebar({
   orgName,
@@ -71,11 +72,8 @@ export function Sidebar({
   }
 
   const brand = (
-    <div className="flex items-center gap-2.5 px-2">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-bold text-white">
-        A
-      </span>
-      {!collapsed && <span className="text-[15px] font-extrabold tracking-tight">AUTOMIDIA</span>}
+    <div className="flex items-center px-2">
+      <Logo withWordmark={!collapsed} size={30} wordmarkClassName="text-[15px]" />
     </div>
   );
 
@@ -131,7 +129,7 @@ export function Sidebar({
   );
 
   const promo = !collapsed && (
-    <div className="mx-1 rounded-[var(--radius)] bg-gradient-to-br from-[var(--color-primary)] to-[#8b5cf6] p-3.5 text-white">
+    <div className="bg-gradient-brand mx-1 rounded-[var(--radius)] p-3.5 text-white">
       <div className="flex items-center gap-1.5 text-sm font-semibold">
         <Icon.rocket width={16} height={16} /> Publique mais, cresça mais!
       </div>

@@ -17,7 +17,7 @@ export function formatResult(result: ExecResult): OutgoingMessage {
 /** Menu interativo de 1 nível (lista oficial do WhatsApp). */
 export const MENU: OutgoingMessage = {
   kind: "list",
-  header: "AUTOMIDIA",
+  header: "AUTORA",
   body: "O que você quer fazer?",
   footer: "Ou é só me mandar uma foto/vídeo e dizer quando publicar.",
   button: "Abrir menu",

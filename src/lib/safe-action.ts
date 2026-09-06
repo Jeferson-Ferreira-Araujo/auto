@@ -16,7 +16,7 @@ export function orgAction<TInput extends z.ZodTypeAny, TOutput>(
     try {
       const ctx = await requireOrgContext();
       if (ctx.org.blockedAt) {
-        throw new AppError("FORBIDDEN", "Empresa suspensa. Fale com o suporte da AUTOMIDIA.");
+        throw new AppError("FORBIDDEN", "Empresa suspensa. Fale com o suporte da AUTORA.");
       }
       const input = schema.parse(raw);
       const data = await handler(input, ctx);

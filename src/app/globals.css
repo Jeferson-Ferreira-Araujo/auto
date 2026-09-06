@@ -1,20 +1,29 @@
 @import "tailwindcss";
 
+/* AUTORA — paleta azul-marinho / azul / violeta, muito branco, cantos arredondados. */
 @theme {
-  --color-bg: #f7f8fa;
+  --color-bg: #f8fafc;
   --color-surface: #ffffff;
-  --color-border: #e9eaee;
-  --color-text: #101828;
-  --color-muted: #667085;
-  --color-primary: #6d28d9;
-  --color-primary-hover: #5b21b6;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-heading: #1e293b;
+  --color-muted: #64748b;
+
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
   --color-primary-fg: #ffffff;
-  --color-primary-soft: #f4f0fe;
-  --color-success: #067647;
-  --color-warning: #b54708;
-  --color-danger: #d92d20;
-  --radius: 0.75rem;
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --color-primary-soft: #eef2ff;
+  --color-accent: #2563eb;
+  --color-violet: #7c3aed;
+
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-urgent: #ea580c;
+  --color-danger: #dc2626;
+
+  --gradient-brand: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  --radius: 0.875rem;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 * {
@@ -29,11 +38,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Gradiente da marca — usado no bloco promocional e em banners de destaque. */
+.bg-gradient-brand {
+  background-image: var(--gradient-brand);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d0d5dd;
+  background: #cbd5e1;
   border-radius: 999px;
 }
