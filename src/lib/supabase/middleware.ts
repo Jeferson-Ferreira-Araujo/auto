@@ -4,6 +4,12 @@ import { publicEnv } from "@/lib/env";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
 
+/** Rotas consolidadas na reorganização modular (AUTORA). */
+const MOVED: Record<string, string> = {
+  "/categorias": "/biblioteca?view=categorias",
+  "/instagram": "/configuracoes?view=instagram",
+};
+
 /** Renova a sessão, protege as rotas privadas e resolve a raiz "/". */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -28,6 +34,15 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
   const isApi = path.startsWith("/api");
+
+  // Rotas antigas → novo lugar na estrutura modular.
+  if (MOVED[path]) {
+    const [pathname, query] = MOVED[path].split("?");
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    url.search = query ? `?${query}` : "";
+    return NextResponse.redirect(url, 308);
+  }
 
   // Raiz: manda para o painel (logado) ou login.
   if (path === "/") {

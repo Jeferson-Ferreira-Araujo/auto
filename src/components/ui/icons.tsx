@@ -141,6 +141,34 @@ export const Icon = {
       <path d="m6 6 3 3M15 15l3 3M18 6l-3 3M9 15l-3 3" />
     </P>
   ),
+  box: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z" />
+      <path d="M3 7.5 12 12l9-4.5M12 12v9" />
+    </P>
+  ),
+  clock: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </P>
+  ),
+  alert: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <path d="M12 3 2 20h20L12 3Z" />
+      <path d="M12 10v5M12 18h.01" />
+    </P>
+  ),
+  check: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <path d="m5 13 4 4 10-11" />
+    </P>
+  ),
+  barcode: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <path d="M4 5v14M8 5v14M12 5v14M16 5v14M20 5v14" />
+    </P>
+  ),
 };
 
 export type IconName = keyof typeof Icon;

@@ -1,11 +1,9 @@
-import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
 import { formatDateTime, daysUntil } from "@/lib/display";
 import { insightsNeedsReconnect } from "@/lib/instagram/insights";
-import { DisconnectButton } from "./DisconnectButton";
-import { startInstagramConnect } from "./actions";
+import { DisconnectButton } from "../instagram/DisconnectButton";
+import { startInstagramConnect } from "../instagram/actions";
 
 function ConnectButton({ label }: { label: string }) {
   return (
@@ -23,55 +21,59 @@ const ERROS: Record<string, string> = {
   falha: "Não foi possível concluir a conexão. Verifique se a conta é profissional (Comercial ou Criador de Conteúdo).",
 };
 
-export default async function InstagramPage({
-  searchParams,
+export async function InstagramPanel({
+  organizationId,
+  sp,
 }: {
-  searchParams: Promise<{ conectado?: string; erro?: string }>;
+  organizationId: string;
+  sp: { conectado?: string; erro?: string };
 }) {
-  const { org } = await requireOrgOrOnboarding();
-  const sp = await searchParams;
-  const account = await prisma.instagramAccount.findUnique({ where: { organizationId: org.id } });
-
+  const account = await prisma.instagramAccount.findUnique({ where: { organizationId } });
   const daysLeft = account ? daysUntil(account.tokenExpiresAt) : 0;
 
   return (
-    <>
-      <PageHeader title="Instagram" description="Conecte a conta profissional que vai receber as publicações." />
+    <Card>
+      <CardBody className="space-y-4">
+        <div>
+          <h3 className="font-medium">Instagram</h3>
+          <p className="text-sm text-[var(--color-muted)]">
+            Conecte a conta profissional que vai receber as publicações.
+          </p>
+        </div>
 
-      {sp.conectado && (
-        <div className="mb-4 rounded-[var(--radius)] border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          Instagram conectado com sucesso.
-        </div>
-      )}
-      {sp.erro && (
-        <div className="mb-4 rounded-[var(--radius)] border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {ERROS[sp.erro] ?? "Ocorreu um erro."}
-        </div>
-      )}
+        {sp.conectado && (
+          <div className="rounded-[var(--radius)] border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+            Instagram conectado com sucesso.
+          </div>
+        )}
+        {sp.erro && (
+          <div className="rounded-[var(--radius)] border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            {ERROS[sp.erro] ?? "Ocorreu um erro."}
+          </div>
+        )}
 
-      {account && account.status === "CONNECTED" && insightsNeedsReconnect(account.insightsError) && (
-        <div className="mb-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <strong>Relatórios de desempenho:</strong> a autorização de métricas não foi concedida. Clique
-          em <strong>Reconectar</strong> e, na tela do Instagram, mantenha <em>todas</em> as permissões
-          marcadas (inclusive a de acessar insights). Suas publicações continuam funcionando.
-        </div>
-      )}
-      {account && account.status === "CONNECTED" && !account.insightsSyncedAt && !insightsNeedsReconnect(account.insightsError) && (
-        <div className="mb-4 rounded-[var(--radius)] border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-          <strong>Relatórios de desempenho:</strong> preparando os primeiros dados — em alguns minutos
-          aparecem em <strong>Desempenho</strong>.
-        </div>
-      )}
+        {account && account.status === "CONNECTED" && insightsNeedsReconnect(account.insightsError) && (
+          <div className="rounded-[var(--radius)] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <strong>Relatórios de desempenho:</strong> a autorização de métricas não foi concedida. Clique
+            em <strong>Reconectar</strong> e, na tela do Instagram, mantenha <em>todas</em> as permissões
+            marcadas (inclusive a de acessar insights). Suas publicações continuam funcionando.
+          </div>
+        )}
+        {account && account.status === "CONNECTED" && !account.insightsSyncedAt && !insightsNeedsReconnect(account.insightsError) && (
+          <div className="rounded-[var(--radius)] border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            <strong>Relatórios de desempenho:</strong> preparando os primeiros dados — em alguns minutos
+            aparecem em <strong>Desempenho</strong>.
+          </div>
+        )}
 
-      {!account ? (
-        <EmptyState
-          title="Nenhuma conta conectada"
-          description="Você precisa de uma conta profissional do Instagram (Comercial ou Criador de Conteúdo)."
-          action={<ConnectButton label="Conectar Instagram" />}
-        />
-      ) : (
-        <Card>
-          <CardBody>
+        {!account ? (
+          <EmptyState
+            title="Nenhuma conta conectada"
+            description="Você precisa de uma conta profissional do Instagram (Comercial ou Criador de Conteúdo)."
+            action={<ConnectButton label="Conectar Instagram" />}
+          />
+        ) : (
+          <div>
             <div className="flex items-start gap-4">
               {account.profilePictureUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -104,9 +106,9 @@ export default async function InstagramPage({
               <ConnectButton label={account.status === "CONNECTED" ? "Reconectar" : "Reconectar agora"} />
               <DisconnectButton />
             </div>
-          </CardBody>
-        </Card>
-      )}
-    </>
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }

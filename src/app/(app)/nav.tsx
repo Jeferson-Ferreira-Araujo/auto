@@ -9,17 +9,33 @@ import { Logo } from "@/components/Logo";
 import { signOut } from "@/app/session-actions";
 
 type NavItem = { href: string; label: string; icon: IconName; match?: (path: string, view: string | null) => boolean };
+type NavGroup = { label?: string; items: NavItem[] };
 
-const ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Painel", icon: "home", match: (p, v) => p === "/dashboard" && v !== "desempenho" },
-  { href: "/calendario", label: "Calendário", icon: "calendar", match: (p, v) => p.startsWith("/calendario") && v !== "lista" },
-  { href: "/calendario?view=lista", label: "Publicações", icon: "posts", match: (p, v) => p.startsWith("/calendario") && v === "lista" },
-  { href: "/biblioteca", label: "Mídia", icon: "media" },
-  { href: "/categorias", label: "Categorias", icon: "tag" },
-  { href: "/automacoes", label: "Automações", icon: "automation" },
-  { href: "/instagram", label: "Instagram", icon: "instagram" },
-  { href: "/dashboard?view=desempenho", label: "Desempenho", icon: "chart", match: (p, v) => p === "/dashboard" && v === "desempenho" },
-  { href: "/configuracoes", label: "Configurações", icon: "settings" },
+const GROUPS: NavGroup[] = [
+  {
+    items: [
+      { href: "/dashboard", label: "Início", icon: "home", match: (p, v) => p === "/dashboard" && !v },
+    ],
+  },
+  {
+    label: "Produtos",
+    items: [
+      { href: "/produtos", label: "Validades", icon: "box", match: (p) => p.startsWith("/produtos") },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      { href: "/calendario?view=lista", label: "Publicações", icon: "posts", match: (p, v) => p.startsWith("/calendario") && v === "lista" },
+      { href: "/calendario", label: "Calendário", icon: "calendar", match: (p, v) => p.startsWith("/calendario") && v !== "lista" },
+      { href: "/biblioteca", label: "Biblioteca", icon: "media", match: (p) => p === "/biblioteca" },
+      { href: "/automacoes", label: "Automações", icon: "automation" },
+      { href: "/dashboard?view=desempenho", label: "Desempenho", icon: "chart", match: (p, v) => p === "/dashboard" && v === "desempenho" },
+    ],
+  },
+  {
+    items: [{ href: "/configuracoes", label: "Configurações", icon: "settings", match: (p) => p.startsWith("/configuracoes") }],
+  },
 ];
 
 const ADMIN_ITEM: NavItem = {
@@ -96,35 +112,48 @@ export function Sidebar({
     </Link>
   );
 
-  const items = isSuperAdmin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
+  const groups: NavGroup[] = isSuperAdmin
+    ? [...GROUPS.slice(0, -1), { items: [...GROUPS[GROUPS.length - 1].items, ADMIN_ITEM] }]
+    : GROUPS;
+
+  const renderItem = (it: NavItem) => {
+    const active = it.match
+      ? it.match(pathname, view)
+      : pathname === it.href || pathname.startsWith(`${it.href}/`);
+    const Ico = Icon[it.icon];
+    return (
+      <Link
+        key={it.href}
+        href={it.href}
+        prefetch={false}
+        onClick={() => setOpen(false)}
+        title={collapsed ? it.label : undefined}
+        className={cn(
+          "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors",
+          collapsed && "justify-center px-2",
+          active
+            ? "bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]"
+            : "text-[var(--color-text)] hover:bg-black/[0.04]",
+        )}
+      >
+        <Ico className={active ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"} />
+        {!collapsed && it.label}
+      </Link>
+    );
+  };
 
   const nav = (
-    <nav className="flex flex-col gap-0.5">
-      {items.map((it) => {
-        const active = it.match
-          ? it.match(pathname, view)
-          : pathname === it.href || pathname.startsWith(`${it.href}/`);
-        const Ico = Icon[it.icon];
-        return (
-          <Link
-            key={it.href}
-            href={it.href}
-            prefetch={false}
-            onClick={() => setOpen(false)}
-            title={collapsed ? it.label : undefined}
-            className={cn(
-              "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors",
-              collapsed && "justify-center px-2",
-              active
-                ? "bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]"
-                : "text-[var(--color-text)] hover:bg-black/[0.04]",
-            )}
-          >
-            <Ico className={active ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"} />
-            {!collapsed && it.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-col gap-3">
+      {groups.map((g, i) => (
+        <div key={g.label ?? `g${i}`} className="flex flex-col gap-0.5">
+          {g.label && !collapsed && (
+            <span className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+              {g.label}
+            </span>
+          )}
+          {g.items.map(renderItem)}
+        </div>
+      ))}
     </nav>
   );
 

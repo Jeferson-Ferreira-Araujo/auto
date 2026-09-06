@@ -1,13 +1,57 @@
+import Link from "next/link";
 import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
+import { cn } from "@/lib/utils";
 import { loadCategoryTree, formatPath } from "@/lib/categories";
 import { Uploader } from "./Uploader";
 import { VideoMerger } from "./VideoMerger";
 import { LibraryClient, type MediaItem } from "./LibraryClient";
+import { CategoriesClient } from "../categorias/CategoriesClient";
 
-export default async function BibliotecaPage() {
+function Tabs({ view }: { view: "midia" | "categorias" }) {
+  const tab = (href: string, label: string, active: boolean) => (
+    <Link
+      href={href}
+      className={cn(
+        "rounded-[var(--radius)] px-3 py-1.5 text-sm font-medium",
+        active
+          ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+          : "text-[var(--color-muted)] hover:bg-black/[0.04]",
+      )}
+    >
+      {label}
+    </Link>
+  );
+  return (
+    <div className="mb-4 flex gap-1">
+      {tab("/biblioteca", "Mídia", view === "midia")}
+      {tab("/biblioteca?view=categorias", "Categorias", view === "categorias")}
+    </div>
+  );
+}
+
+export default async function BibliotecaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const { org } = await requireOrgOrOnboarding();
+  const sp = await searchParams;
+
+  if (sp.view === "categorias") {
+    const nodes = await loadCategoryTree(org.id);
+    return (
+      <>
+        <PageHeader
+          title="Biblioteca"
+          description="Organize suas mídias em grupos e subgrupos livres (ex.: Produtos › Pizzas › Frango). As automações e o WhatsApp usam essa estrutura para escolher o que publicar."
+        />
+        <Tabs view="categorias" />
+        <CategoriesClient nodes={nodes} />
+      </>
+    );
+  }
 
   const [assets, tree] = await Promise.all([
     prisma.mediaAsset.findMany({
@@ -52,6 +96,7 @@ export default async function BibliotecaPage() {
   return (
     <>
       <PageHeader title="Biblioteca" description={`${items.length} mídia(s) · limite de ${org.mediaLimit}`} />
+      <Tabs view="midia" />
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Uploader />

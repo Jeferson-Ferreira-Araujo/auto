@@ -47,7 +47,7 @@ export const disconnectInstagram = orgAction(z.object({}), async (_input, { org 
     prisma.instagramAccount.delete({ where: { id: account.id } }),
   ]);
 
-  revalidatePath("/instagram");
+  revalidatePath("/configuracoes");
   revalidateOrg(org.id, "dashboard", "insights");
   return { disconnected: true };
 });

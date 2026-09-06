@@ -8,11 +8,17 @@ import { SettingsForm } from "./SettingsForm";
 import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
 import { LogoUpload } from "./LogoUpload";
 import { WatermarkUpload } from "./WatermarkUpload";
+import { InstagramPanel } from "./InstagramPanel";
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dono", ADMIN: "Administrador", MEMBER: "Membro" };
 
-export default async function ConfiguracoesPage() {
+export default async function ConfiguracoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; conectado?: string; erro?: string }>;
+}) {
   const { org, user } = await requireOrgOrOnboarding();
+  const sp = await searchParams;
   const members = await prisma.organizationMember.findMany({
     where: { organizationId: org.id },
     include: { user: { select: { email: true, name: true } } },
@@ -48,6 +54,10 @@ export default async function ConfiguracoesPage() {
       <PageHeader title="Configurações" description="Preferências da empresa." />
 
       <div className="space-y-6">
+        <div id="instagram" className="scroll-mt-20">
+          <InstagramPanel organizationId={org.id} sp={sp} />
+        </div>
+
         <AutoPublishToggle status={org.autoPublishStatus} />
 
         <SettingsForm name={org.name} uploadLimitMb={org.uploadLimitMb} />

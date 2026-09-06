@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     log.warn({ error, desc: url.searchParams.get("error_description") }, "usuário negou ou erro no OAuth");
-    return redirectTo("/instagram?erro=negado");
+    return redirectTo("/configuracoes?view=instagram&erro=negado");
   }
   if (!code || !state || !savedState || state !== savedState) {
-    return redirectTo("/instagram?erro=state");
+    return redirectTo("/configuracoes?view=instagram&erro=state");
   }
 
   try {
@@ -68,11 +68,11 @@ export async function GET(req: NextRequest) {
 
     revalidateOrgFromRoute(org.id, "insights", "dashboard");
 
-    const res = redirectTo("/instagram?conectado=1");
+    const res = redirectTo("/configuracoes?view=instagram&conectado=1");
     res.cookies.delete(STATE_COOKIE);
     return res;
   } catch (err) {
     log.error({ err }, "falha ao conectar Instagram");
-    return redirectTo("/instagram?erro=falha");
+    return redirectTo("/configuracoes?view=instagram&erro=falha");
   }
 }

@@ -9,7 +9,6 @@ import { loadCategoryTree, siblingNameTaken, descendantIds } from "@/lib/categor
 import { revalidateOrg } from "@/lib/cache";
 
 function bump(orgId: string) {
-  revalidatePath("/categorias");
   revalidatePath("/biblioteca");
   revalidatePath("/automacoes");
   // a árvore muda e a contagem de categorias no dashboard muda
