@@ -3,8 +3,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { loadCategoryTree } from "@/lib/categories";
 import { CategoriesClient } from "./CategoriesClient";
 
-export const dynamic = "force-dynamic";
-
 export default async function CategoriasPage() {
   const { org } = await requireOrgOrOnboarding();
   const nodes = await loadCategoryTree(org.id);

@@ -4,8 +4,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { loadCategoryTree, formatPath } from "@/lib/categories";
 import { AutomationsClient, type Automation } from "./AutomationsClient";
 
-export const dynamic = "force-dynamic";
-
 export default async function AutomacoesPage() {
   const { org } = await requireOrgOrOnboarding();
 

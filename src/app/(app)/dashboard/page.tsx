@@ -6,8 +6,6 @@ import { DashboardHome } from "./DashboardHome";
 import { PerformanceView } from "./PerformanceView";
 import { AdminPanel } from "./AdminPanel";
 
-export const dynamic = "force-dynamic";
-
 export default async function DashboardPage({
   searchParams,
 }: {

@@ -4,8 +4,6 @@ import { Sidebar } from "./nav";
 import { Topbar } from "./Topbar";
 import { AccountSuspended, OrgSuspended } from "./Suspended";
 
-export const dynamic = "force-dynamic";
-
 const ROLE_LABEL: Record<string, string> = {
   OWNER: "Proprietário",
   ADMIN: "Administrador",

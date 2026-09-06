@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
+import { revalidateOrg } from "@/lib/cache";
 import { notFound, validation } from "@/lib/errors";
 import { automationSchema, updateAutomationSchema } from "@/lib/validation/schemas";
 import { runGenerate } from "@/lib/scheduler/generate";
@@ -35,6 +36,7 @@ export const createAutomation = orgAction(automationSchema, async (input, { org 
   await runGenerate(new Date(), org.id).catch(() => {});
   revalidatePath("/automacoes");
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return automation;
 });
 
@@ -70,6 +72,7 @@ export const updateAutomation = orgAction(updateAutomationSchema, async (input, 
 
   revalidatePath("/automacoes");
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return { id: automation.id };
 });
 
@@ -82,11 +85,13 @@ export const deleteAutomation = orgAction(z.object({ id: z.string().min(1) }), a
   await prisma.automation.delete({ where: { id: automation.id } });
   revalidatePath("/automacoes");
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return { id: automation.id };
 });
 
 export const generateNow = orgAction(z.object({}), async (_input, { org }) => {
   const summary = await runGenerate(new Date(), org.id);
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return summary;
 });

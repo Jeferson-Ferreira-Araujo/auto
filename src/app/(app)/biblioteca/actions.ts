@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
+import { revalidateOrg } from "@/lib/cache";
 import { notFound, validation } from "@/lib/errors";
 import { confirmUploadSchema, updateMediaSchema } from "@/lib/validation/schemas";
 import { ingestUpload } from "@/lib/media/ingest";
@@ -24,6 +25,7 @@ export const confirmUpload = orgAction(confirmUploadSchema, async (input, { org 
     timezone: org.timezone,
   });
   revalidatePath("/biblioteca");
+  revalidateOrg(org.id, "dashboard");
   return {
     id: asset.id,
     processingStatus: asset.processingStatus,
@@ -56,6 +58,7 @@ export const updateMedia = orgAction(updateMediaSchema, async (input, { org }) =
     },
   });
   revalidatePath("/biblioteca");
+  revalidateOrg(org.id, "categories"); // categoryId pode ter mudado → _count.mediaAssets da árvore
   return updated;
 });
 
@@ -120,5 +123,6 @@ export const deleteMedia = orgAction(z.object({ id: z.string().min(1) }), async 
       .map((k) => deleteObject(k)),
   );
   revalidatePath("/biblioteca");
+  revalidateOrg(org.id, "dashboard", "categories");
   return { id: asset.id };
 });

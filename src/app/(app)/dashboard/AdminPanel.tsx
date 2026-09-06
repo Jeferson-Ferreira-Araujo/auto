@@ -7,8 +7,6 @@ import { formatDateTime } from "@/lib/display";
 import { AdminOrgRow } from "./AdminOrgRow";
 import { AdminUserRow } from "./AdminUserRow";
 
-export const dynamic = "force-dynamic";
-
 const MB = 1024 * 1024;
 
 export async function AdminPanel() {

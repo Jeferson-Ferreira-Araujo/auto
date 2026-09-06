@@ -17,8 +17,6 @@ function ConnectButton({ label }: { label: string }) {
   );
 }
 
-export const dynamic = "force-dynamic";
-
 const ERROS: Record<string, string> = {
   negado: "Você cancelou a conexão com o Instagram.",
   state: "A sessão de conexão expirou. Tente novamente.",

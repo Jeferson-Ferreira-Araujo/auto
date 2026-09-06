@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { OrgContext } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDashboardData } from "@/lib/dashboard";
 import { Card, CardBody } from "@/components/ui/primitives";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { AutoPublishToggle } from "@/components/AutoPublishToggle";
@@ -91,35 +91,14 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
   const weekEnd = new Date(weekStart.getTime() + 7 * 86400_000);
 
-  const [instagram, scheduledSoon, upcoming, weekPosts, automations, categoriesCount, mediaCount, publishedCount] =
-    await Promise.all([
-      prisma.instagramAccount.findUnique({ where: { organizationId: org.id } }),
-      prisma.scheduledPost.count({
-        where: { organizationId: org.id, status: "SCHEDULED", scheduledAt: { lte: in7d } },
-      }),
-      prisma.scheduledPost.findMany({
-        where: { organizationId: org.id, status: { in: ["SCHEDULED", "PROCESSING"] } },
-        include: {
-          mediaAsset: { select: { id: true, name: true, type: true } },
-          automation: { select: { category: { select: { name: true } } } },
-        },
-        orderBy: { scheduledAt: "asc" },
-        take: 6,
-      }),
-      prisma.scheduledPost.findMany({
-        where: { organizationId: org.id, scheduledAt: { gte: weekStart, lt: weekEnd } },
-        include: { mediaAsset: { select: { id: true, name: true, type: true } } },
-        orderBy: { scheduledAt: "asc" },
-      }),
-      prisma.automation.findMany({
-        where: { organizationId: org.id },
-        orderBy: { createdAt: "desc" },
-        take: 4,
-      }),
-      prisma.mediaCategory.count({ where: { organizationId: org.id } }),
-      prisma.mediaAsset.count({ where: { organizationId: org.id } }),
-      prisma.scheduledPost.count({ where: { organizationId: org.id, status: "PUBLISHED" } }),
-    ]);
+  const { instagram, scheduledSoon, upcoming, weekPosts, automations, categoriesCount, mediaCount, publishedCount } =
+    await getDashboardData(
+      org.id,
+      now.toISOString(),
+      weekStart.toISOString(),
+      weekEnd.toISOString(),
+      in7d.toISOString(),
+    );
 
   const report = await InstagramInsightsService.getReport(org.id, resolveRange({ range: "7d" }));
   const hasInsights = report.status === "ok";

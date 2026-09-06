@@ -9,8 +9,6 @@ import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
 import { LogoUpload } from "./LogoUpload";
 import { WatermarkUpload } from "./WatermarkUpload";
 
-export const dynamic = "force-dynamic";
-
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dono", ADMIN: "Administrador", MEMBER: "Membro" };
 
 export default async function ConfiguracoesPage() {

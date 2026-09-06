@@ -4,8 +4,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { CalendarClient, type CalPost, type PickMedia } from "./CalendarClient";
 import { HistoryView, type HistoryFilters } from "./HistoryView";
 
-export const dynamic = "force-dynamic";
-
 function monthRange(monthParam?: string) {
   const now = new Date();
   const [y, m] = monthParam?.split("-").map(Number) ?? [now.getFullYear(), now.getMonth() + 1];

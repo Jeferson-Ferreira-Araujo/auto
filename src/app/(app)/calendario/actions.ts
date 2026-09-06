@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
+import { revalidateOrg } from "@/lib/cache";
 import { notFound, validation, conflict } from "@/lib/errors";
 import { manualScheduleSchema, updateScheduledPostSchema } from "@/lib/validation/schemas";
 import { createScheduledPost } from "@/lib/posts";
@@ -19,6 +20,7 @@ export const createManualPost = orgAction(manualScheduleSchema, async (input, { 
     source: "MANUAL",
   });
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return { id: post.id };
 });
 
@@ -51,6 +53,7 @@ export const updateScheduledPost = orgAction(updateScheduledPostSchema, async (i
     },
   });
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return { id: post.id };
 });
 
@@ -65,5 +68,6 @@ export const cancelScheduledPost = orgAction(z.object({ id: z.string().min(1) })
     data: { status: "CANCELLED", errorMessage: "Cancelada pelo usuário." },
   });
   revalidatePath("/calendario");
+  revalidateOrg(org.id, "dashboard");
   return { id: post.id };
 });

@@ -6,11 +6,14 @@ import { orgAction } from "@/lib/safe-action";
 import { conflict, notFound, validation } from "@/lib/errors";
 import { categorySchema, updateCategorySchema, deleteCategorySchema } from "@/lib/validation/schemas";
 import { loadCategoryTree, siblingNameTaken, descendantIds } from "@/lib/categories";
+import { revalidateOrg } from "@/lib/cache";
 
-function bump() {
+function bump(orgId: string) {
   revalidatePath("/categorias");
   revalidatePath("/biblioteca");
   revalidatePath("/automacoes");
+  // a árvore muda e a contagem de categorias no dashboard muda
+  revalidateOrg(orgId, "categories", "dashboard");
 }
 
 export const createCategory = orgAction(categorySchema, async (input, { org }) => {
@@ -27,7 +30,7 @@ export const createCategory = orgAction(categorySchema, async (input, { org }) =
   const category = await prisma.mediaCategory.create({
     data: { organizationId: org.id, parentId, name: input.name },
   });
-  bump();
+  bump(org.id);
   return { id: category.id };
 });
 
@@ -46,7 +49,7 @@ export const updateCategory = orgAction(updateCategorySchema, async (input, { or
     where: { id: category.id },
     data: { name: input.name ?? undefined, isActive: input.isActive ?? undefined },
   });
-  bump();
+  bump(org.id);
   return { id: updated.id };
 });
 
@@ -63,6 +66,6 @@ export const deleteCategory = orgAction(deleteCategorySchema, async (input, { or
 
   // ON DELETE CASCADE remove a subárvore; mídias ficam com categoryId = null.
   await prisma.mediaCategory.delete({ where: { id: category.id } });
-  bump();
+  bump(org.id);
   return { id: category.id, removed: subtree.length };
 });

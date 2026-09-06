@@ -9,7 +9,9 @@
  * Multi-tenant: toda query é escopada por `organizationId`.
  */
 import type { InstagramAccount } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { orgTag } from "@/lib/cache";
 import { childLogger } from "@/lib/logger";
 import { getValidAccessToken } from "./account";
 import { isAuthError } from "./errors";
@@ -262,7 +264,21 @@ function bestBy(rows: MediaRow[]): MediaRow | null {
   return [...rows].sort((a, b) => b.views - a.views || b.reach - a.reach)[0];
 }
 
+/**
+ * Relatório de Desempenho. Cacheado por org + janela do período (tag
+ * `org:<id>:insights`). Invalidado por `syncInsightsNow`; o cron `sync-insights`
+ * roda fora do Next, então o `revalidate: 300` garante frescor em ≤5 min.
+ */
 async function getReport(orgId: string, range: RangeInput): Promise<Report> {
+  const key = `${ymd(range.from)}:${ymd(range.to)}`;
+  return unstable_cache(
+    () => getReportUncached(orgId, range),
+    ["insights-report", orgId, key],
+    { tags: [orgTag(orgId, "insights")], revalidate: 300 },
+  )();
+}
+
+async function getReportUncached(orgId: string, range: RangeInput): Promise<Report> {
   const account = await prisma.instagramAccount.findUnique({ where: { organizationId: orgId } });
 
   const empty: Report = {

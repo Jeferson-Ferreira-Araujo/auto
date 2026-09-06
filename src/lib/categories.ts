@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { cachedByOrg } from "@/lib/cache";
 
 export type CategoryNode = {
   id: string;
@@ -27,8 +28,13 @@ export function formatPath(path: string[]): string {
 /**
  * Carrega todas as categorias da organização já achatadas em ordem DFS,
  * com `depth`, `path` e contagem de mídias. Uma consulta.
+ *
+ * Cacheado por org (tag `org:<id>:categories`) — invalidado pelas actions de
+ * categoria e de mídia (set-category, upload).
  */
-export async function loadCategoryTree(organizationId: string): Promise<CategoryNode[]> {
+export const loadCategoryTree = cachedByOrg("categories", loadCategoryTreeUncached);
+
+async function loadCategoryTreeUncached(organizationId: string): Promise<CategoryNode[]> {
   const rows = await prisma.mediaCategory.findMany({
     where: { organizationId },
     include: { _count: { select: { mediaAssets: true } } },

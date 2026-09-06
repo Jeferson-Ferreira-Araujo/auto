@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireOrgContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { revalidateOrgFromRoute } from "@/lib/cache";
 import { encrypt } from "@/lib/crypto";
 import { childLogger } from "@/lib/logger";
 import { publicEnv } from "@/lib/env";
@@ -64,6 +65,8 @@ export async function GET(req: NextRequest) {
         insightsSyncedAt: null,
       },
     });
+
+    revalidateOrgFromRoute(org.id, "insights", "dashboard");
 
     const res = redirectTo("/instagram?conectado=1");
     res.cookies.delete(STATE_COOKIE);

@@ -6,8 +6,6 @@ import { Uploader } from "./Uploader";
 import { VideoMerger } from "./VideoMerger";
 import { LibraryClient, type MediaItem } from "./LibraryClient";
 
-export const dynamic = "force-dynamic";
-
 export default async function BibliotecaPage() {
   const { org } = await requireOrgOrOnboarding();
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { orgAction } from "@/lib/safe-action";
+import { revalidateOrg } from "@/lib/cache";
 import { VideoProcessingService } from "@/lib/video/service";
 import { PRESET_NAMES } from "@/lib/video/presets";
 
@@ -42,6 +43,7 @@ export const mergeVideos = orgAction(
       timezone: org.timezone,
     });
     revalidatePath("/biblioteca");
+    revalidateOrg(org.id, "dashboard"); // asset placeholder novo entra na contagem
     return res;
   },
 );

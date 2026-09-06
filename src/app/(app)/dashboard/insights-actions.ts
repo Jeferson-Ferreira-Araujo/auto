@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
+import { revalidateOrg } from "@/lib/cache";
 import { validation } from "@/lib/errors";
 import { InstagramInsightsService, insightsNeedsReconnect } from "@/lib/instagram/insights";
 
@@ -20,6 +21,7 @@ export const syncInsightsNow = orgAction(z.object({}), async (_input, { org }) =
     select: { insightsSyncedAt: true, insightsError: true },
   });
   revalidatePath("/dashboard");
+  revalidateOrg(org.id, "insights", "dashboard");
   return {
     synced: Boolean(fresh?.insightsSyncedAt),
     needsReconnect: insightsNeedsReconnect(fresh?.insightsError ?? null),

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireOrgContext } from "@/lib/auth";
 import { orgAction } from "@/lib/safe-action";
+import { revalidateOrg } from "@/lib/cache";
 import { validation } from "@/lib/errors";
 import { InstagramService } from "@/lib/instagram/service";
 import { IG_STATE_COOKIE } from "./constants";
@@ -47,5 +48,6 @@ export const disconnectInstagram = orgAction(z.object({}), async (_input, { org 
   ]);
 
   revalidatePath("/instagram");
+  revalidateOrg(org.id, "dashboard", "insights");
   return { disconnected: true };
 });
