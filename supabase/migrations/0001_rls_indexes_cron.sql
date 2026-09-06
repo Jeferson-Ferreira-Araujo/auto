@@ -66,8 +66,15 @@ BEGIN
   RETURN req_id;
 END $$;
 
-SELECT cron.schedule('instapub_generate',        '*/15 * * * *', $$SELECT private.call_cron('generate')$$);
-SELECT cron.schedule('instapub_publish',         '* * * * *',    $$SELECT private.call_cron('publish')$$);
-SELECT cron.schedule('instapub_refresh_tokens',  '0 6 * * *',    $$SELECT private.call_cron('refresh-tokens')$$);
-SELECT cron.schedule('automidia_video_recover',  '*/10 * * * *', $$SELECT private.call_cron('video-recover')$$);
-SELECT cron.schedule('automidia_sync_insights',  '0 */3 * * *',  $$SELECT private.call_cron('sync-insights')$$);
+-- Os jobs agendados NÃO rodam mais no pg_cron — a lógica foi movida para o
+-- GitHub Actions (.github/workflows/cron.yml + scripts/cron-worker/index.ts) para
+-- não consumir Fluid Active CPU da Vercel. A função private.call_cron e a tabela
+-- private.app_config continuam aqui para trigger manual / rollback:
+--   SELECT private.call_cron('publish');   -- dispara /api/cron?job=publish na hora
+--
+-- Se este banco ainda tiver os jobs antigos ativos, remova-os uma vez:
+--   SELECT cron.unschedule('instapub_generate');
+--   SELECT cron.unschedule('instapub_publish');
+--   SELECT cron.unschedule('instapub_refresh_tokens');
+--   SELECT cron.unschedule('automidia_video_recover');
+--   SELECT cron.unschedule('automidia_sync_insights');

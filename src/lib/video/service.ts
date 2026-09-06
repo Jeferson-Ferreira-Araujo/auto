@@ -1,7 +1,7 @@
 import type { PublishVariant } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { childLogger } from "@/lib/logger";
-import { AppError, notFound, validation } from "@/lib/errors";
+import { AppError, notFound, validation } from "@/lib/errors-core";
 import { deleteObject } from "@/lib/storage/r2";
 import { autoPickPreset, type PresetName } from "./presets";
 import { dispatchWorker } from "./dispatch";

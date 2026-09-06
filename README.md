@@ -4,7 +4,7 @@ SaaS multiempresa onde uma empresa **envia mídias → organiza em categorias �
 
 - **Stack:** Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind CSS 4 · Prisma · PostgreSQL (Supabase) · Supabase Auth · Cloudflare R2 · Zod · APIs oficiais da Meta.
 - **Custo alvo:** R$ 0 usando Vercel Free + Supabase Free + Cloudflare R2 Free Tier.
-- **Publicação em background:** `pg_cron` no Supabase (a cada 1 min) chamando rotas `/api/cron/*` protegidas por segredo. Não usa Vercel Cron (o plano Hobby só roda 1×/dia), nem Redis/BullMQ.
+- **Publicação em background:** GitHub Actions (`.github/workflows/cron.yml`) roda a lógica do scheduler no runner, direto no Postgres/Meta/R2 — fora da Vercel, para não gastar Fluid Active CPU. Não usa Vercel Cron nem Redis/BullMQ.
 
 ## Como funciona (visão de arquitetura)
 
@@ -14,9 +14,9 @@ Browser ──(URL pré-assinada)──► Cloudflare R2         (upload direto;
    ▼
 Next.js (Vercel)  ── Prisma ──►  PostgreSQL (Supabase)
    │                              ▲
-   │  InstagramService            │ pg_cron + pg_net (a cada minuto)
+   │  InstagramService            │ GitHub Actions (cron-worker) — publish a cada ~5 min
    ▼                              │
- graph.instagram.com  ◄───────────┘  chama POST /api/cron/publish
+ graph.instagram.com  ◄───────────┘  scripts/cron-worker/index.ts
 ```
 
 - Toda mídia (original, JPEG normalizado, thumbnail) vive no **R2**, em bucket **privado**. Quando a Meta precisa buscar a mídia para publicar, geramos uma **URL pré-assinada de leitura válida por 2h**.
@@ -219,18 +219,29 @@ npm run dev
 Abra `http://localhost:3000`. Fluxo: **Criar conta → confirmar e-mail → criar empresa (onboarding) →
 conectar Instagram → criar categorias → enviar mídias → agendar/automatizar → calendário**.
 
-### Disparar o scheduler em desenvolvimento
+### Jobs agendados (scheduler)
 
-Os jobs `pg_cron` no Supabase não alcançam `localhost`. Com `npm run dev` rodando:
+Em **produção** os jobs rodam no **GitHub Actions** (`.github/workflows/cron.yml` →
+`scripts/cron-worker/index.ts`), falando direto com Postgres/Meta/R2 — não na Vercel, para não
+consumir Fluid Active CPU. Cadências: `publish` a cada 5 min, `generate`+`video-recover` a cada
+30 min, `sync-insights` a cada 3 h, `refresh-tokens` às 6h. **O agendamento do Actions é impreciso**
+(pode atrasar 5–15 min sob carga).
+
+Configurar os secrets do repo uma vez: `node scripts/setup-gh-secrets.mjs` (lê do `.env`).
+
+Em **desenvolvimento**, com `.env` preenchido (não precisa do `npm run dev` rodando — o worker
+não passa pela app):
 
 ```bash
-npm run cron:generate   # materializa ScheduledPosts das automações (próximos 7 dias)
-npm run cron:publish     # publica os ScheduledPosts vencidos
-npm run cron:refresh     # renova tokens do Instagram perto de expirar
+npm run cron:generate        # materializa ScheduledPosts das automações (próximos 7 dias)
+npm run cron:publish         # publica os ScheduledPosts vencidos
+npm run cron:refresh         # renova tokens do Instagram perto de expirar
+npm run cron:video-recover   # recupera jobs de vídeo presos
+npm run cron:sync-insights   # sincroniza Insights da Meta
 ```
 
-Para simular o cron real, rode `npm run cron:publish` num loop a cada minuto
-(ex.: `while true; do npm run cron:publish; sleep 60; done`).
+Trigger manual em produção: `SELECT private.call_cron('publish');` no SQL do Supabase, ou
+`workflow_dispatch` do workflow `cron` no GitHub.
 
 ---
 
@@ -257,10 +268,12 @@ Para simular o cron real, rode `npm run cron:publish` num loop a cada minuto
    - **Supabase Auth**: adicione o domínio nas Redirect URLs.
    - **Cloudflare R2 CORS**: adicione o domínio.
    - **Supabase SQL Editor**: `update private.app_config ...` com a URL e o `CRON_SECRET` de produção (passo 2.6).
-5. Os jobs `pg_cron` passam a chamar a produção automaticamente (1 min / 15 min / diário).
+5. **Jobs agendados**: rodam no **GitHub Actions**, não na Vercel nem no `pg_cron` (ver seção 6).
+   Rode `node scripts/setup-gh-secrets.mjs` para gravar os secrets do repo. Se o banco ainda tiver
+   os jobs `pg_cron` antigos, remova-os (`SELECT cron.unschedule('instapub_publish')` etc. — lista
+   completa no comentário de `supabase/migrations/0001_rls_indexes_cron.sql`).
 
-Não há Vercel Cron configurado — de propósito. Se preferir usar o `pg_cron`, nada a fazer.
-Alternativas gratuitas (GitHub Actions `*/5`, etc.) podem chamar as mesmas rotas `/api/cron/*`.
+Não há Vercel Cron configurado — de propósito.
 
 ---
 
@@ -271,8 +284,9 @@ prisma/
   schema.prisma                 modelo de dados (fonte da verdade)
   migrations/                   migration inicial do Prisma
 supabase/
-  migrations/0001_*.sql         RLS + índice parcial + pg_cron/pg_net
-scripts/cron.mjs                dispara /api/cron/* em dev
+  migrations/0001_*.sql         RLS + índice parcial + pg_net (jobs agora no GitHub Actions)
+.github/workflows/cron.yml      jobs agendados (produção)
+scripts/cron-worker/index.ts    lógica dos jobs — roda no Actions e em dev (npm run cron:*)
 src/
   proxy.ts                      (middleware) renova sessão + protege rotas
   app/
@@ -313,7 +327,7 @@ src/
 4. `/calendario` → **Agendar publicação** para daqui a ~3 min → aparece como **Agendado**.
 5. `/automacoes` → nova automação (dias de hoje, horário +5 min, `LEAST_USED`) →
    `npm run cron:generate` → o `ScheduledPost` da automação aparece no calendário.
-6. `npm run cron:publish` (ou aguardar o `pg_cron` em produção) → status vai a **Publicando** → **Publicado**,
+6. `npm run cron:publish` (ou aguardar o GitHub Actions em produção) → status vai a **Publicando** → **Publicado**,
    com `instagramMediaId` e `publishedAt`; **a publicação aparece de verdade no Instagram**.
 7. Token inválido → `retryCount` sobe, `publication_logs` registra cada fase, e após 3 tentativas vai a **Falhou**.
 8. Concorrência: `npm run cron:publish` 2× em paralelo → apenas 1 `instagramMediaId`, sem post duplicado.

@@ -29,12 +29,25 @@ const env = Object.fromEntries(
 );
 
 const SECRETS = {
+  // Worker de vídeo (.github/workflows/video-enhance.yml)
   WORKER_DB_URL: env.DIRECT_URL,
   R2_ACCOUNT_ID: env.R2_ACCOUNT_ID,
   R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
   R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
   R2_BUCKET: env.R2_BUCKET,
   R2_ENDPOINT: env.R2_ENDPOINT,
+  // Cron worker (.github/workflows/cron.yml) — precisa do schema inteiro de src/lib/env.ts
+  NEXT_PUBLIC_APP_URL: env.NEXT_PUBLIC_APP_URL,
+  NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  ENCRYPTION_KEY: env.ENCRYPTION_KEY,
+  CRON_SECRET: env.CRON_SECRET,
+  INSTAGRAM_APP_ID: env.INSTAGRAM_APP_ID,
+  INSTAGRAM_APP_SECRET: env.INSTAGRAM_APP_SECRET,
+  INSTAGRAM_REDIRECT_URI: env.INSTAGRAM_REDIRECT_URI,
+  // GitHub não permite secrets com prefixo GITHUB_ — mapeados no workflow p/ GITHUB_REPO/TOKEN
+  GH_WORKER_REPO: env.GITHUB_REPO,
+  GH_DISPATCH_TOKEN: env.GITHUB_DISPATCH_TOKEN,
 };
 
 const gh = (path, init) =>

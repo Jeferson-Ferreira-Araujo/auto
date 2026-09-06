@@ -11,9 +11,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "cron:generate": "node scripts/cron.mjs generate",
-    "cron:publish": "node scripts/cron.mjs publish",
-    "cron:refresh": "node scripts/cron.mjs refresh-tokens",
+    "cron:generate": "tsx --env-file=.env scripts/cron-worker/index.ts generate",
+    "cron:publish": "tsx --env-file=.env scripts/cron-worker/index.ts publish",
+    "cron:refresh": "tsx --env-file=.env scripts/cron-worker/index.ts refresh-tokens",
+    "cron:video-recover": "tsx --env-file=.env scripts/cron-worker/index.ts video-recover",
+    "cron:sync-insights": "tsx --env-file=.env scripts/cron-worker/index.ts sync-insights",
     "postinstall": "prisma generate"
   },
   "dependencies": {

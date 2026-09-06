@@ -1,0 +1,65 @@
+name: cron
+
+# Roda a lógica dos jobs agendados no runner do GitHub Actions (não na Vercel).
+# Substitui o pg_cron. Ver scripts/cron-worker/index.ts.
+#
+# ATENÇÃO: o agendamento do GitHub Actions é impreciso — pode atrasar 5-15 min
+# sob carga. Aceitável para publicação agendada de Instagram.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # publish
+    - cron: "*/30 * * * *" # generate + video-recover
+    - cron: "0 */3 * * *" # sync-insights
+    - cron: "0 6 * * *" # refresh-tokens
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: "lista separada por vírgula: generate,publish,refresh-tokens,video-recover,sync-insights"
+        required: true
+
+concurrency:
+  group: cron-${{ github.event.schedule || github.event.inputs.jobs }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Resolve jobs
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "*/5 * * * *")  echo "jobs=publish" >> "$GITHUB_OUTPUT" ;;
+            "*/30 * * * *") echo "jobs=generate,video-recover" >> "$GITHUB_OUTPUT" ;;
+            "0 */3 * * *")  echo "jobs=sync-insights" >> "$GITHUB_OUTPUT" ;;
+            "0 6 * * *")    echo "jobs=refresh-tokens" >> "$GITHUB_OUTPUT" ;;
+            *)              echo "jobs=${{ github.event.inputs.jobs }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Run cron worker
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          DATABASE_URL: ${{ secrets.WORKER_DB_URL }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          INSTAGRAM_REDIRECT_URI: ${{ secrets.INSTAGRAM_REDIRECT_URI }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          GITHUB_REPO: ${{ secrets.GH_WORKER_REPO }}
+          GITHUB_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        run: npx tsx scripts/cron-worker/index.ts "${{ steps.pick.outputs.jobs }}"
