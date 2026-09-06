@@ -15,6 +15,8 @@ import { runPublish } from "@/lib/scheduler/publish";
 import { runRefreshTokens } from "@/lib/scheduler/refresh-tokens";
 import { VideoProcessingService } from "@/lib/video/service";
 import { InstagramInsightsService } from "@/lib/instagram/insights";
+import { runExpirationDetection } from "@/lib/products/detect";
+import { processDomainEvents } from "@/lib/events/process";
 
 const JOBS: Record<string, () => Promise<unknown>> = {
   generate: () => runGenerate(),
@@ -22,6 +24,8 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   "refresh-tokens": () => runRefreshTokens(),
   "video-recover": () => VideoProcessingService.retryStuck(),
   "sync-insights": () => InstagramInsightsService.syncAll(),
+  "detect-expirations": () => runExpirationDetection(),
+  "process-events": () => processDomainEvents(),
 };
 
 async function main(): Promise<number> {

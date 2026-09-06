@@ -6,6 +6,8 @@ import { runPublish } from "@/lib/scheduler/publish";
 import { runRefreshTokens } from "@/lib/scheduler/refresh-tokens";
 import { VideoProcessingService } from "@/lib/video/service";
 import { InstagramInsightsService } from "@/lib/instagram/insights";
+import { runExpirationDetection } from "@/lib/products/detect";
+import { processDomainEvents } from "@/lib/events/process";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,9 +31,13 @@ async function handle(req: NextRequest) {
         return NextResponse.json({ ok: true, job, ...(await VideoProcessingService.retryStuck()) });
       case "sync-insights":
         return NextResponse.json({ ok: true, job, ...(await InstagramInsightsService.syncAll()) });
+      case "detect-expirations":
+        return NextResponse.json({ ok: true, job, ...(await runExpirationDetection()) });
+      case "process-events":
+        return NextResponse.json({ ok: true, job, ...(await processDomainEvents()) });
       default:
         throw validation(
-          "Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover | sync-insights).",
+          "Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover | sync-insights | detect-expirations | process-events).",
         );
     }
   } catch (err) {

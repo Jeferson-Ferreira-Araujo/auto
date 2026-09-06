@@ -8,6 +8,7 @@ import { InstagramService } from "@/lib/instagram/service";
 import { getValidAccessToken, markAccountExpired } from "@/lib/instagram/account";
 import { InstagramApiError, isAuthError } from "@/lib/instagram/errors";
 import { VideoProcessingService } from "@/lib/video/service";
+import { emitEvent } from "@/lib/events/emit";
 
 const log = childLogger({ mod: "scheduler/publish" });
 
@@ -168,6 +169,12 @@ async function publishOne(id: string): Promise<OneOutcome> {
       }),
     ]);
     await logAttempt(post, "PUBLISH", "SUCCESS", `mediaId ${mediaId}`);
+    await emitEvent(
+      post.organizationId,
+      "POST_PUBLISHED",
+      { scheduledPostId: post.id, mediaName: post.mediaAsset.name, publishedAt: new Date().toISOString() },
+      `POST_PUBLISHED:${post.id}`,
+    ).catch(() => {});
     l.info({ mediaId }, "publicado com sucesso");
     return "published";
   } catch (err) {
@@ -268,6 +275,12 @@ async function finalizeFailure(
     where: { id: post.id },
     data: { status: "FAILED", retryCount: nextRetry, errorMessage: message, lockedAt: null },
   });
+  await emitEvent(
+    post.organizationId,
+    "POST_FAILED",
+    { scheduledPostId: post.id, mediaName: "", errorMessage: message },
+    `POST_FAILED:${post.id}`,
+  ).catch(() => {});
   l.error({ message }, "falha definitiva");
   return "failed";
 }

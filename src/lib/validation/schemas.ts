@@ -85,3 +85,41 @@ export const updateScheduledPostSchema = z.object({
 export const setAutoPublishSchema = z.object({
   status: z.enum(["ACTIVE", "PAUSED"]),
 });
+
+// ─────────────────────────── Módulo Produtos: Validades ───────────────────────────
+
+export const productSchema = z.object({
+  id: z.string().min(1).optional(),
+  name: z.string().trim().min(1, "Informe o nome").max(120),
+  barcode: z
+    .string()
+    .trim()
+    .regex(/^\d{8,14}$/, "Código de barras inválido (8 a 14 dígitos)")
+    .nullable()
+    .optional(),
+  active: z.boolean().optional(),
+});
+
+export const registerExpirationSchema = z
+  .object({
+    productId: z.string().min(1).optional(),
+    barcode: z.string().trim().regex(/^\d{8,14}$/).nullable().optional(),
+    productName: z.string().trim().max(120).optional(),
+    quantity: z.number().int().min(1, "Quantidade mínima é 1").max(100000),
+    expirationDate: z.coerce.date(),
+    lot: z.string().trim().max(60).nullable().optional(),
+    location: z.string().trim().max(60).nullable().optional(),
+  })
+  .refine((v) => Boolean(v.productId || v.barcode || v.productName), {
+    message: "Escaneie um código ou informe o nome do produto.",
+    path: ["productName"],
+  });
+
+export const resolveExpirationSchema = z.object({
+  id: z.string().min(1),
+  outcome: z.enum(["SOLD", "DISCARDED", "PRICED_DOWN"]),
+});
+
+export const lookupProductSchema = z.object({
+  barcode: z.string().trim().regex(/^\d{8,14}$/, "Código de barras inválido"),
+});

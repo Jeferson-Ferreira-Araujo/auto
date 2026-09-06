@@ -122,6 +122,31 @@ enum WatermarkPosition {
   BOTTOM_RIGHT
 }
 
+// ─────────────────────────── Módulo Produtos ───────────────────────────
+
+enum ExpirationOutcome {
+  PENDING
+  SOLD
+  DISCARDED
+  PRICED_DOWN
+}
+
+// ─────────────────────────── Eventos / automação ───────────────────────────
+
+enum DomainEventStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+/// Papel do número autorizado no WhatsApp (identidade pelo telefone, nunca pelo conteúdo da mensagem).
+enum WhatsAppRole {
+  OWNER
+  MANAGER
+  EMPLOYEE
+}
+
 // ─────────────────────────── Núcleo multiempresa ───────────────────────────
 
 /// Espelha auth.users do Supabase. id = uuid do Supabase Auth.
@@ -137,36 +162,45 @@ model User {
   memberships        OrganizationMember[]
   connectedInstagram InstagramAccount[]   @relation("InstagramConnectedBy")
   whatsappContacts   WhatsAppContact[]
+  productsCreated    Product[]            @relation("ProductCreatedBy")
+  expirationsCreated ProductExpiration[]  @relation("ExpirationCreatedBy")
 
   @@map("users")
 }
 
 model Organization {
-  id                String            @id @default(cuid())
-  name              String
-  slug              String            @unique
-  autoPublishStatus AutoPublishStatus @default(ACTIVE)
-  timezone          String            @default("America/Sao_Paulo")
-  uploadLimitMb     Int               @default(200)
-  mediaLimit        Int               @default(500)
-  logoStorageKey    String?
+  id                  String            @id @default(cuid())
+  name                String
+  slug                String            @unique
+  autoPublishStatus   AutoPublishStatus @default(ACTIVE)
+  timezone            String            @default("America/Sao_Paulo")
+  uploadLimitMb       Int               @default(200)
+  mediaLimit          Int               @default(500)
+  logoStorageKey      String?
   watermarkStorageKey String?
-  blockedAt         DateTime?
-  storageLimitMb    Int               @default(2048)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  blockedAt           DateTime?
+  storageLimitMb      Int               @default(2048)
+  /// Limites (configuráveis) de status de validade — dias.
+  expiryWarningDays   Int               @default(30)
+  expiryUrgentDays    Int               @default(7)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
-  members           OrganizationMember[]
-  instagramAccounts InstagramAccount[]
-  categories        MediaCategory[]
-  mediaAssets       MediaAsset[]
-  automations       Automation[]
-  scheduledPosts    ScheduledPost[]
-  publicationLogs   PublicationLog[]
-  whatsappContacts  WhatsAppContact[]
-  videoJobs         VideoJob[]
+  members            OrganizationMember[]
+  instagramAccounts  InstagramAccount[]
+  categories         MediaCategory[]
+  mediaAssets        MediaAsset[]
+  automations        Automation[]
+  scheduledPosts     ScheduledPost[]
+  publicationLogs    PublicationLog[]
+  whatsappContacts   WhatsAppContact[]
+  videoJobs          VideoJob[]
   accountInsightDays AccountInsightDay[]
   mediaInsights      MediaInsight[]
+  products           Product[]
+  productExpirations ProductExpiration[]
+  domainEvents       DomainEvent[]
+  automationRules    AutomationRule[]
 
   @@map("organizations")
 }
@@ -390,9 +424,9 @@ model PublicationLog {
 
 /// Vincula um número de WhatsApp a um usuário + organização. Só contatos verificados executam comandos.
 model WhatsAppContact {
-  id                    String    @id @default(cuid())
-  phoneE164             String    @unique
-  userId                String    @db.Uuid
+  id                    String       @id @default(cuid())
+  phoneE164             String       @unique
+  userId                String       @db.Uuid
   organizationId        String
   verifiedAt            DateTime?
   verificationCode      String?
@@ -404,8 +438,12 @@ model WhatsAppContact {
   /// Estado de conversa multi-passo (ex.: aguardando horário, confirmar cancelamento). Expira.
   pendingAction         Json?
   pendingExpiresAt      DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  /// AuthorizedWhatsAppUser: papel + permissões do número na organização.
+  role                  WhatsAppRole @default(OWNER)
+  permissions           String[]     @default([])
+  active                Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -522,4 +560,93 @@ model MediaInsight {
 
   @@index([organizationId, publishedAt])
   @@map("media_insights")
+}
+
+// ─────────────────────────── Módulo Produtos: Validades ───────────────────────────
+
+/// Produto do estabelecimento. Não é estoque — só identifica o item da validade.
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  barcode        String?
+  active         Boolean  @default(true)
+  createdById    String   @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User                @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  expirations  ProductExpiration[]
+
+  @@unique([organizationId, barcode])
+  @@index([organizationId, active])
+  @@map("products")
+}
+
+/// Um registro de "N unidades deste produto vencem em tal data".
+model ProductExpiration {
+  id             String            @id @default(cuid())
+  organizationId String
+  productId      String
+  quantity       Int
+  expirationDate DateTime          @db.Date
+  lot            String?
+  location       String?
+  outcome        ExpirationOutcome @default(PENDING)
+  resolvedAt     DateTime?
+  createdById    String            @db.Uuid
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ExpirationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, expirationDate])
+  @@index([organizationId, outcome, expirationDate])
+  @@map("product_expirations")
+}
+
+// ─────────────────────────── Eventos entre módulos + motor de automação ───────────────────────────
+
+/// Outbox de eventos de domínio. Produtores fazem INSERT; o cron `process-events` consome.
+model DomainEvent {
+  id             String            @id @default(cuid())
+  organizationId String
+  /// PRODUCT_EXPIRING | PRODUCT_EXPIRED | POST_PUBLISHED | POST_FAILED | AUTOMATION_FAILED
+  type           String
+  payload        Json
+  status         DomainEventStatus @default(PENDING)
+  attempts       Int               @default(0)
+  error          String?
+  /// Emissão idempotente (ex.: "PRODUCT_EXPIRING:<expId>").
+  dedupeKey      String?           @unique
+  createdAt      DateTime          @default(now())
+  processedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([organizationId, type, createdAt])
+  @@map("domain_events")
+}
+
+/// Regra do motor de automação: TRIGGER → CONDITIONS → ACTIONS. Sem editor visual ainda.
+model AutomationRule {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  /// Valor de trigger: PRODUCT_EXPIRING | PRODUCT_EXPIRED | POST_FAILED
+  trigger        String
+  conditions     Json     @default("[]")
+  actions        Json     @default("[]")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, trigger, active])
+  @@map("automation_rules")
 }

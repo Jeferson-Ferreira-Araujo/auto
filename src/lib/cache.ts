@@ -14,7 +14,7 @@ import { revalidateTag, unstable_cache, updateTag } from "next/cache";
 
 export const orgTag = (orgId: string, resource: OrgResource) => `org:${orgId}:${resource}`;
 
-export type OrgResource = "categories" | "insights" | "dashboard";
+export type OrgResource = "categories" | "insights" | "dashboard" | "products";
 
 /**
  * Envolve um loader `(orgId, ...args) => Promise<R>` com `unstable_cache`, com

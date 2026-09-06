@@ -38,7 +38,7 @@ jobs:
         run: |
           case "${{ github.event.schedule }}" in
             "*/5 * * * *")  echo "jobs=publish" >> "$GITHUB_OUTPUT" ;;
-            "*/30 * * * *") echo "jobs=generate,video-recover" >> "$GITHUB_OUTPUT" ;;
+            "*/30 * * * *") echo "jobs=generate,video-recover,detect-expirations,process-events" >> "$GITHUB_OUTPUT" ;;
             "0 */3 * * *")  echo "jobs=sync-insights" >> "$GITHUB_OUTPUT" ;;
             "0 6 * * *")    echo "jobs=refresh-tokens" >> "$GITHUB_OUTPUT" ;;
             *)              echo "jobs=${{ github.event.inputs.jobs }}" >> "$GITHUB_OUTPUT" ;;

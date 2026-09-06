@@ -16,6 +16,8 @@
     "cron:refresh": "tsx --env-file=.env scripts/cron-worker/index.ts refresh-tokens",
     "cron:video-recover": "tsx --env-file=.env scripts/cron-worker/index.ts video-recover",
     "cron:sync-insights": "tsx --env-file=.env scripts/cron-worker/index.ts sync-insights",
+    "cron:detect-expirations": "tsx --env-file=.env scripts/cron-worker/index.ts detect-expirations",
+    "cron:process-events": "tsx --env-file=.env scripts/cron-worker/index.ts process-events",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "@prisma/client": "^6.19.3",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.114.0",
+    "@zxing/library": "^0.21.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
