@@ -165,6 +165,7 @@ model User {
   productsCreated    Product[]            @relation("ProductCreatedBy")
   expirationsCreated ProductExpiration[]  @relation("ExpirationCreatedBy")
   deliveryOrders     DeliveryOrder[]      @relation("DeliveryOrderBy")
+  couponsCreated     Coupon[]             @relation("CouponCreatedBy")
 
   @@map("users")
 }
@@ -208,6 +209,7 @@ model Organization {
   automationRules    AutomationRule[]
   whatsappCustomers  WhatsAppCustomer[]
   deliveryOrders     DeliveryOrder[]
+  coupons            Coupon[]
 
   @@map("organizations")
 }
@@ -505,6 +507,38 @@ model WhatsAppCustomer {
   @@map("whatsapp_customers")
 }
 
+/// Cupom de desconto. Genérico (hoje entra nas promoções de WhatsApp; no futuro
+/// pode ir em legendas do Instagram). Resgate é manual — a atendente registra
+/// pelo comando `pedido ... cupom <código>`.
+model Coupon {
+  id             String    @id @default(cuid())
+  organizationId String
+  code           String
+  description    String?
+  kind           CouponKind
+  value          Int // PERCENT: 1..100 · AMOUNT: centavos
+  minOrderCents  Int?
+  expiresAt      DateTime?
+  active         Boolean   @default(true)
+  timesSent      Int       @default(0)
+  timesRedeemed  Int       @default(0)
+  createdById    String    @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CouponCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@index([organizationId, active, expiresAt])
+  @@map("coupons")
+}
+
+enum CouponKind {
+  PERCENT
+  AMOUNT
+}
+
 /// Pedido de delivery registrado pela atendente (comando `pedido <telefone>`).
 /// Serve de log e de gatilho para o pedido de consentimento.
 model DeliveryOrder {
@@ -512,6 +546,7 @@ model DeliveryOrder {
   organizationId String
   customerId     String
   valueCents     Int?
+  couponCode     String?
   note           String?
   registeredById String   @db.Uuid
   createdAt      DateTime @default(now())

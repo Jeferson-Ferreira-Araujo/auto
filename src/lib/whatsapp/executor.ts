@@ -355,9 +355,13 @@ export async function executeCommand(
       const res = await registerDeliveryOrder(org.id, contact.userId, {
         phoneRaw: parsed.phone,
         valueCents: parsed.valueCents,
+        couponCode: parsed.coupon,
       });
       if (!res.ok) return text(`❌ ${res.error}`);
-      const val = parsed.valueCents ? ` (R$ ${(parsed.valueCents / 100).toFixed(2).replace(".", ",")})` : "";
+      const parts: string[] = [];
+      if (parsed.valueCents) parts.push(`R$ ${(parsed.valueCents / 100).toFixed(2).replace(".", ",")}`);
+      if (parsed.coupon) parts.push(`cupom ${parsed.coupon}`);
+      const val = parts.length ? ` (${parts.join(" · ")})` : "";
       if (res.status === "opted_out") {
         return text(`Pedido registrado${val}. O cliente pediu para não receber promoções — não perguntei de novo.`);
       }

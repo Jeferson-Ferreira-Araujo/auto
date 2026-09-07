@@ -129,7 +129,8 @@ function WhatsAppHealthPanel({
         <p className="text-sm font-medium">Mensagem da promoção</p>
         <p className="mb-1.5 text-xs text-[var(--color-muted)]">
           Enviada na manhã seguinte a quem fez pedido e respondeu <strong>SIM</strong>. Deixe em branco para não
-          enviar nada. O “responda SAIR para não receber mais” é adicionado automaticamente.
+          enviar nada. O “responda SAIR para não receber mais” é adicionado automaticamente. Escreva{" "}
+          <code className="rounded bg-[var(--color-bg)] px-1">{"{cupom}"}</code> para inserir o cupom ativo (veja abaixo).
         </p>
         <textarea
           value={msg}

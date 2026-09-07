@@ -42,6 +42,55 @@ export function classifyConsentReply(text: string): ConsentReply {
   return null;
 }
 
+// ─────────────── cupons ───────────────
+
+type CouponLike = {
+  code: string;
+  description: string | null;
+  kind: "PERCENT" | "AMOUNT";
+  value: number;
+  minOrderCents: number | null;
+  expiresAt: Date | null;
+};
+
+const brl = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+const ddmm = (d: Date) =>
+  `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+export function formatCouponLine(c: CouponLike): string {
+  const desc = c.kind === "PERCENT" ? `${c.value}% de desconto` : `${brl(c.value)} de desconto`;
+  const parts = [`🎟️ Cupom *${c.code}*: ${desc}`];
+  if (c.description) parts.push(c.description);
+  const tail: string[] = [];
+  if (c.minOrderCents) tail.push(`pedido mín. ${brl(c.minOrderCents)}`);
+  if (c.expiresAt) tail.push(`válido até ${ddmm(c.expiresAt)}`);
+  if (tail.length) parts.push(`(${tail.join(" · ")})`);
+  return parts.join("\n");
+}
+
+/** Cupom ativo mais recente da org (não expirado). */
+export async function resolveActiveCoupon(organizationId: string) {
+  return prisma.coupon.findFirst({
+    where: {
+      organizationId,
+      active: true,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Injeta o cupom no texto: no lugar de {cupom}, ou no fim se não houver placeholder. */
+export function applyCoupon(body: string, couponLine: string | null): string {
+  if (body.includes("{cupom}")) {
+    return body
+      .replace(/\s*\{cupom\}\s*/g, couponLine ? `\n\n${couponLine}\n\n` : "\n\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  return couponLine ? `${body.trim()}\n\n${couponLine}` : body.trim();
+}
+
 const OPT_IN_ASK =
   "✅ Pedido confirmado! Obrigado pela preferência 🥐\n\n" +
   "Quer receber nossas promoções da semana aqui no WhatsApp? Responda *SIM*.\n" +
@@ -53,7 +102,7 @@ const PROMO_FOOTER = "\n\n_Para não receber mais, responda SAIR._";
 export async function registerDeliveryOrder(
   organizationId: string,
   registeredById: string,
-  input: { phoneRaw: string; valueCents?: number | null; note?: string | null },
+  input: { phoneRaw: string; valueCents?: number | null; note?: string | null; couponCode?: string | null },
 ): Promise<
   | { ok: true; customerPhone: string; asked: boolean; status: "asked" | "send_failed" | "already_in" | "opted_out" }
   | { ok: false; error: string }
@@ -68,15 +117,23 @@ export async function registerDeliveryOrder(
     update: { lastOrderAt: now },
   });
 
+  const couponCode = input.couponCode?.trim().toUpperCase() || null;
   await prisma.deliveryOrder.create({
     data: {
       organizationId,
       customerId: customer.id,
       registeredById,
       valueCents: input.valueCents ?? null,
+      couponCode,
       note: input.note?.trim() || null,
     },
   });
+
+  if (couponCode) {
+    await prisma.coupon
+      .updateMany({ where: { organizationId, code: couponCode }, data: { timesRedeemed: { increment: 1 } } })
+      .catch(() => {});
+  }
 
   if (customer.promoOptOutAt) return { ok: true, customerPhone: phoneE164, asked: false, status: "opted_out" };
   if (customer.promoConsent) return { ok: true, customerPhone: phoneE164, asked: false, status: "already_in" };
@@ -178,8 +235,12 @@ export async function sendPendingPromos(): Promise<{
 
   for (const org of orgs) {
     stats.orgs++;
-    const body = (org.whatsappPromoMessage ?? "").trim();
-    if (!body) continue;
+    const raw = (org.whatsappPromoMessage ?? "").trim();
+    if (!raw) continue;
+
+    const coupon = await resolveActiveCoupon(org.id);
+    const body = applyCoupon(raw, coupon ? formatCouponLine(coupon) : null);
+    let sentWithCoupon = 0;
 
     const customers = await prisma.whatsAppCustomer.findMany({
       where: {
@@ -201,9 +262,16 @@ export async function sendPendingPromos(): Promise<{
         await WhatsAppService.sendText(c.phoneE164, body + PROMO_FOOTER);
         await prisma.whatsAppCustomer.update({ where: { id: c.id }, data: { lastPromoAt: new Date() } });
         stats.sent++;
+        if (coupon) sentWithCoupon++;
       } catch (err) {
         log.error({ err, phone: c.phoneE164 }, "falha ao enviar promoção");
       }
+    }
+
+    if (coupon && sentWithCoupon > 0) {
+      await prisma.coupon
+        .update({ where: { id: coupon.id }, data: { timesSent: { increment: sentWithCoupon } } })
+        .catch(() => {});
     }
   }
 

@@ -112,17 +112,28 @@ export class DeterministicParser implements CommandParser {
     if (YES.test(t)) return { kind: "CONFIRM" };
     if (NO.test(t)) return { kind: "DECLINE" };
 
-    // ── Registrar pedido de delivery: "pedido <telefone> [valor]" ──
-    const pedido = raw.match(
-      /^\s*pedido\s+(?:tel\.?\s*)?(\+?[\d\s().-]{8,20})(?:\s+(?:r\$\s*)?(\d{1,6}(?:[.,]\d{1,2})?))?\s*$/i,
-    );
-    if (pedido) {
-      const phone = pedido[1].replace(/\D/g, "");
-      if (phone.length >= 8) {
-        const valueCents = pedido[2]
-          ? Math.round(Number.parseFloat(pedido[2].replace(",", ".")) * 100)
-          : null;
-        return { kind: "REGISTER_ORDER", phone, valueCents: Number.isFinite(valueCents) ? valueCents : null };
+    // ── Registrar pedido de delivery: "pedido <telefone> [valor] [cupom <código>]" ──
+    const pedidoHead = raw.match(/^\s*pedido\s+([\s\S]+)$/i);
+    if (pedidoHead) {
+      let rest = pedidoHead[1].trim();
+      let coupon: string | null = null;
+      let valueCents: number | null = null;
+
+      const cupomM = rest.match(/\s+cupom\s+([a-z0-9._-]{2,24})\s*$/i);
+      if (cupomM) {
+        coupon = cupomM[1].toUpperCase();
+        rest = rest.slice(0, cupomM.index).trim();
+      }
+      const valM = rest.match(/\s+(?:r\$\s*)?(\d{1,6}(?:[.,]\d{1,2})?)\s*$/i);
+      if (valM) {
+        const n = Number.parseFloat(valM[1].replace(",", "."));
+        if (Number.isFinite(n)) valueCents = Math.round(n * 100);
+        rest = rest.slice(0, valM.index).trim();
+      }
+
+      const phone = rest.replace(/[^\d]/g, "");
+      if (phone.length >= 10 && phone.length <= 15) {
+        return { kind: "REGISTER_ORDER", phone, valueCents, coupon };
       }
     }
 

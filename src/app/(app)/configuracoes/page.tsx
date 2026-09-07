@@ -7,6 +7,7 @@ import { whatsappConfigured, whatsappTestNumber } from "@/lib/whatsapp/service";
 import { getWhatsAppHealth } from "@/lib/whatsapp/health";
 import { SettingsForm } from "./SettingsForm";
 import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
+import { CouponsManager, type CouponView } from "./CouponsManager";
 import { LogoUpload } from "./LogoUpload";
 import { WatermarkUpload } from "./WatermarkUpload";
 import { InstagramPanel } from "./InstagramPanel";
@@ -27,6 +28,21 @@ export default async function ConfiguracoesPage({
   });
 
   const mediaCount = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
+
+  const coupons: CouponView[] = (
+    await prisma.coupon.findMany({ where: { organizationId: org.id }, orderBy: { createdAt: "desc" }, take: 30 })
+  ).map((c) => ({
+    id: c.id,
+    code: c.code,
+    description: c.description,
+    kind: c.kind,
+    value: c.value,
+    minOrderCents: c.minOrderCents,
+    expiresAt: c.expiresAt?.toISOString() ?? null,
+    active: c.active,
+    timesSent: c.timesSent,
+    timesRedeemed: c.timesRedeemed,
+  }));
 
   const configured = whatsappConfigured();
   const [waContact, waHealth] = configured
@@ -74,6 +90,8 @@ export default async function ConfiguracoesPage({
         <WatermarkUpload hasWatermark={Boolean(org.watermarkStorageKey)} />
 
         <WhatsAppCard state={whatsappState} />
+
+        <CouponsManager coupons={coupons} />
 
         <Card>
           <CardBody>
