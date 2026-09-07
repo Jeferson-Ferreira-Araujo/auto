@@ -9,7 +9,8 @@ import { Logo } from "@/components/Logo";
 import { signOut } from "@/app/session-actions";
 
 type NavItem = { href: string; label: string; icon: IconName; match?: (path: string, view: string | null) => boolean };
-type NavGroup = { label?: string; items: NavItem[] };
+/** Grupo simples = itens soltos. Grupo com `key`+`icon` = módulo que abre submenu ao clicar. */
+type NavGroup = { key?: string; label?: string; icon?: IconName; items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
@@ -18,13 +19,17 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: "produtos",
     label: "Produtos",
+    icon: "box",
     items: [
       { href: "/produtos", label: "Validades", icon: "box", match: (p) => p.startsWith("/produtos") },
     ],
   },
   {
+    key: "marketing",
     label: "Marketing",
+    icon: "rocket",
     items: [
       { href: "/calendario?view=lista", label: "Publicações", icon: "posts", match: (p, v) => p.startsWith("/calendario") && v === "lista" },
       { href: "/calendario", label: "Calendário", icon: "calendar", match: (p, v) => p.startsWith("/calendario") && v !== "lista" },
@@ -63,6 +68,7 @@ export function Sidebar({
   const view = params.get("view");
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     try {
@@ -116,10 +122,11 @@ export function Sidebar({
     ? [...GROUPS.slice(0, -1), { items: [...GROUPS[GROUPS.length - 1].items, ADMIN_ITEM] }]
     : GROUPS;
 
-  const renderItem = (it: NavItem) => {
-    const active = it.match
-      ? it.match(pathname, view)
-      : pathname === it.href || pathname.startsWith(`${it.href}/`);
+  const itemActive = (it: NavItem) =>
+    it.match ? it.match(pathname, view) : pathname === it.href || pathname.startsWith(`${it.href}/`);
+
+  const renderItem = (it: NavItem, opts?: { nested?: boolean }) => {
+    const active = itemActive(it);
     const Ico = Icon[it.icon];
     return (
       <Link
@@ -131,6 +138,7 @@ export function Sidebar({
         className={cn(
           "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors",
           collapsed && "justify-center px-2",
+          opts?.nested && !collapsed && "py-1.5 pl-3",
           active
             ? "bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]"
             : "text-[var(--color-text)] hover:bg-black/[0.04]",
@@ -142,18 +150,58 @@ export function Sidebar({
     );
   };
 
-  const nav = (
-    <nav className="flex flex-col gap-3">
-      {groups.map((g, i) => (
-        <div key={g.label ?? `g${i}`} className="flex flex-col gap-0.5">
-          {g.label && !collapsed && (
-            <span className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
-              {g.label}
-            </span>
-          )}
-          {g.items.map(renderItem)}
+  const renderModule = (g: NavGroup) => {
+    const hasActive = g.items.some(itemActive);
+    const expanded = openModules[g.key!] ?? hasActive;
+    const Ico = Icon[g.icon ?? "box"];
+
+    // Recolhido (rail de ícones): mostra os itens soltos, sem acordeão.
+    if (collapsed) {
+      return (
+        <div key={g.key} className="flex flex-col gap-0.5">
+          {g.items.map((it) => renderItem(it))}
         </div>
-      ))}
+      );
+    }
+
+    return (
+      <div key={g.key} className="flex flex-col gap-0.5">
+        <button
+          type="button"
+          onClick={() => setOpenModules((s) => ({ ...s, [g.key!]: !expanded }))}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors hover:bg-black/[0.04]",
+            hasActive ? "font-semibold text-[var(--color-primary)]" : "text-[var(--color-text)]",
+          )}
+        >
+          <Ico className={hasActive ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"} />
+          <span className="flex-1 text-left">{g.label}</span>
+          <Icon.chevronDown
+            width={14}
+            height={14}
+            className={cn("shrink-0 text-[var(--color-muted)] transition-transform", expanded && "rotate-180")}
+          />
+        </button>
+        {expanded && (
+          <div className="ml-4 flex flex-col gap-0.5 border-l pl-1">
+            {g.items.map((it) => renderItem(it, { nested: true }))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const nav = (
+    <nav className="flex flex-col gap-2">
+      {groups.map((g, i) =>
+        g.key ? (
+          renderModule(g)
+        ) : (
+          <div key={`g${i}`} className="flex flex-col gap-0.5">
+            {g.items.map((it) => renderItem(it))}
+          </div>
+        ),
+      )}
     </nav>
   );
 
