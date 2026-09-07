@@ -1,6 +1,6 @@
 -- Executar APÓS `prisma migrate deploy`.
 -- Aplique no Supabase: Dashboard > SQL Editor  (ou `supabase db push` se usar a CLI).
--- Já foi aplicado no projeto "instapub" (crnuazkevczftzqyyxnr) durante o desenvolvimento.
+-- Já foi aplicado no projeto de desenvolvimento.
 
 -- ── Índice parcial para o scheduler (só linhas SCHEDULED) ──
 CREATE INDEX IF NOT EXISTS "scheduled_posts_due_idx"

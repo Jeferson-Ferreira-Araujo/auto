@@ -41,8 +41,8 @@ Next.js (Vercel)  ── Prisma ──►  PostgreSQL (Supabase)
 
 ## 2. Supabase (PostgreSQL + Auth)
 
-> Um projeto Supabase chamado **`instapub`** já foi criado durante o desenvolvimento
-> (ref `crnuazkevczftzqyyxnr`, região `sa-east-1`). Você pode usá-lo ou criar o seu.
+> Crie um projeto no Supabase (região sugerida: `sa-east-1`). O `ref` do projeto e as
+> chaves ficam em `Project Settings → API` — nunca commite esses valores.
 
 1. **Project Settings → API**: copie `Project URL` e a `anon`/`publishable` key para `.env`.
 2. **Project Settings → Database → Connection string**:
