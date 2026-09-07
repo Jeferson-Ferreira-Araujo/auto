@@ -23,7 +23,8 @@ const GROUPS: NavGroup[] = [
     label: "Produtos",
     icon: "box",
     items: [
-      { href: "/produtos", label: "Validades", icon: "box", match: (p) => p.startsWith("/produtos") },
+      { href: "/produtos", label: "Validades", icon: "box", match: (p, v) => p.startsWith("/produtos") && v !== "cupons" },
+      { href: "/produtos?view=cupons", label: "Cupons", icon: "tag", match: (p, v) => p.startsWith("/produtos") && v === "cupons" },
     ],
   },
   {

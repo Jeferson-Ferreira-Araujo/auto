@@ -89,12 +89,15 @@ export function CouponsManager({ coupons }: { coupons: CouponView[] }) {
   return (
     <Card>
       <CardBody>
-        <h3 className="mb-1 font-medium">Cupons de desconto</h3>
         <p className="mb-4 text-sm text-[var(--color-muted)]">
-          O cupom <strong>ativo</strong> mais recente entra automaticamente na promoção do WhatsApp. Use{" "}
-          <code className="rounded bg-[var(--color-bg)] px-1">{"{cupom}"}</code> na mensagem para escolher onde ele aparece
-          (senão vai no fim). A atendente registra o uso com{" "}
-          <code className="rounded bg-[var(--color-bg)] px-1">pedido 11999998888 cupom CODIGO</code>.
+          Crie códigos de desconto (percentual ou valor fixo), com validade e pedido mínimo opcionais, e
+          acompanhe quantos foram enviados e usados.
+          <span className="mt-1 block text-xs">
+            Onde entram: o cupom <strong>ativo</strong> mais recente é incluído na promoção do WhatsApp
+            (use <code className="rounded bg-[var(--color-bg)] px-1">{"{cupom}"}</code> na mensagem, ou vai no fim).
+            A atendente registra o uso com{" "}
+            <code className="rounded bg-[var(--color-bg)] px-1">pedido 11999998888 cupom CODIGO</code>.
+          </span>
         </p>
 
         {coupons.length > 0 && (

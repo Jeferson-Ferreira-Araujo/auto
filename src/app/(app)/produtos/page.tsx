@@ -95,10 +95,10 @@ export default async function ProdutosPage({
     }));
     return (
       <>
-        <PageHeader title="Cupons de desconto" description="Códigos de desconto para as promoções." />
-        <Link href="/produtos" className="mb-4 inline-block text-sm text-[var(--color-primary)]">
-          ← Painel
-        </Link>
+        <PageHeader
+          title="Cupons de desconto"
+          description="Crie códigos de desconto para usar nas promoções e no atendimento."
+        />
         <CouponsManager coupons={coupons} />
       </>
     );
@@ -175,16 +175,13 @@ export default async function ProdutosPage({
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
-        {total > 0 && (
-          <Link href="/produtos?view=lista" className="text-[var(--color-primary)]">
+      {total > 0 && (
+        <div className="mt-4">
+          <Link href="/produtos?view=lista" className="text-sm font-medium text-[var(--color-primary)]">
             Ver todas as validades →
           </Link>
-        )}
-        <Link href="/produtos?view=cupons" className="text-[var(--color-primary)]">
-          Cupons de desconto →
-        </Link>
-      </div>
+        </div>
+      )}
     </>
   );
 }
