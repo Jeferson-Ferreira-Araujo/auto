@@ -9,18 +9,30 @@ export type LabelScanResult = {
   dates: string[]; // ISO aaaa-mm-dd, mais provável primeiro
   names: string[];
   text: string;
-  photo?: string; // data URL colorida (reduzida) do que foi escaneado
+  photo?: string; // data URL colorida (reduzida) do quadro capturado
+};
+
+export type WizardResult = { photo?: string; names: string[]; dates: string[] };
+
+type Mode = "product" | "expiry";
+
+const COPY: Record<Mode, { capture: string; noRead: string }> = {
+  product: {
+    capture: "Capturar foto do produto",
+    noRead: "Não consegui ler o nome. Você pode digitar na próxima etapa.",
+  },
+  expiry: {
+    capture: "Capturar a validade",
+    noRead: "Não consegui ler a data. Tente aproximar e focar na validade — ou digite na próxima etapa.",
+  },
 };
 
 /**
- * OCR da embalagem — 100% no navegador (tesseract.js, Apache-2.0). Captura um
- * quadro da câmera (ou uma foto), lê o texto em português e devolve candidatos
- * a **data de validade** e **nome do produto** para o usuário confirmar.
- *
- * O modelo de idioma (~5 MB) é baixado da CDN na 1ª leitura e fica em cache no
- * navegador. Sempre há a alternativa de digitar manualmente.
+ * Captura um quadro da câmera (ou uma foto) e lê o texto com OCR — 100% no
+ * navegador (tesseract.js, Apache-2.0; modelo pt-BR baixado da CDN na 1ª vez e
+ * cacheado). `mode` só muda os textos; a extração devolve nome e data sempre.
  */
-export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => void }) {
+export function LabelScanner({ mode, onResult }: { mode: Mode; onResult: (r: LabelScanResult) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,7 +88,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
     return worker;
   }
 
-  /** Desenha a fonte (vídeo/imagem) num canvas ampliado e em tons de cinza — ajuda o OCR. */
+  /** Desenha a fonte num canvas ampliado e em tons de cinza — ajuda o OCR. */
   function preprocess(source: CanvasImageSource, w: number, h: number): HTMLCanvasElement {
     const scale = Math.min(2, Math.max(1, 1600 / Math.max(w, h)));
     const canvas = document.createElement("canvas");
@@ -88,7 +100,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
     const d = img.data;
     for (let i = 0; i < d.length; i += 4) {
       const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      const v = g > 145 ? 255 : g < 95 ? 0 : g; // leve aumento de contraste
+      const v = g > 145 ? 255 : g < 95 ? 0 : g;
       d[i] = d[i + 1] = d[i + 2] = v;
     }
     ctx.putImageData(img, 0, 0);
@@ -109,9 +121,8 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
         text,
         photo,
       };
-      if (!result.dates.length && !result.names.length) {
-        setError("Não consegui ler o rótulo. Tente aproximar, focar a validade e evitar reflexo — ou preencha manualmente.");
-      }
+      const relevant = mode === "expiry" ? result.dates.length : result.names.length;
+      if (!relevant) setError(COPY[mode].noRead);
       onResult(result);
     } catch {
       setError("Falha ao processar a imagem. Verifique a conexão (o modelo é baixado na 1ª vez) ou preencha manualmente.");
@@ -162,7 +173,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
           <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
             <div className="h-full bg-[var(--color-primary)] transition-all" style={{ width: `${Math.max(8, progress)}%` }} />
           </div>
-          <p className="text-xs text-[var(--color-muted)]">Lendo o rótulo… {progress}%</p>
+          <p className="text-xs text-[var(--color-muted)]">Lendo… {progress}%</p>
         </div>
       ) : !cameraOn ? (
         <Button type="button" variant="secondary" onClick={startCamera} className="w-full">
@@ -171,7 +182,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
       ) : (
         <div className="flex gap-2">
           <Button type="button" onClick={captureFromCamera} className="flex-1">
-            Capturar e ler validade
+            {COPY[mode].capture}
           </Button>
           <Button type="button" variant="ghost" onClick={stopCamera}>
             Parar
@@ -180,7 +191,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
       )}
 
       <label className="block">
-        <span className="sr-only">Enviar foto do rótulo</span>
+        <span className="sr-only">Enviar foto</span>
         <input
           type="file"
           accept="image/*"
@@ -192,6 +203,76 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
       </label>
 
       {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Assistente em 2 etapas: (1) foto do produto → nome; (2) foto da validade → data.
+ * A validade quase sempre fica longe do nome na embalagem, então são capturas
+ * separadas. Cada etapa pode ser pulada e preenchida manualmente depois.
+ */
+export function LabelScanWizard({ onDone }: { onDone: (r: WizardResult) => void }) {
+  const [stage, setStage] = useState<"product" | "expiry">("product");
+  const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const [names, setNames] = useState<string[]>([]);
+
+  function afterProduct(r: LabelScanResult) {
+    if (r.photo) setPhoto(r.photo);
+    setNames(r.names);
+    setStage("expiry");
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-xs font-medium">
+        <span className={stage === "product" ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"}>
+          1 · Foto do produto
+        </span>
+        <span className="text-[var(--color-border)]">›</span>
+        <span className={stage === "expiry" ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"}>
+          2 · Foto da validade
+        </span>
+      </div>
+
+      {stage === "product" ? (
+        <>
+          <p className="text-sm text-[var(--color-muted)]">
+            Fotografe a frente do produto. A AUTORA guarda essa foto e tenta ler o nome.
+          </p>
+          <LabelScanner mode="product" onResult={afterProduct} />
+          <button
+            type="button"
+            onClick={() => setStage("expiry")}
+            className="text-xs font-medium text-[var(--color-primary)]"
+          >
+            Pular — vou digitar o nome
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-[var(--color-muted)]">
+            Agora fotografe a <span className="font-medium">data de validade</span> (fundo, tampa ou lateral da embalagem).
+          </p>
+          <LabelScanner mode="expiry" onResult={(r) => onDone({ photo, names, dates: r.dates })} />
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setStage("product")}
+              className="text-xs font-medium text-[var(--color-muted)]"
+            >
+              ‹ Voltar
+            </button>
+            <button
+              type="button"
+              onClick={() => onDone({ photo, names, dates: [] })}
+              className="text-xs font-medium text-[var(--color-primary)]"
+            >
+              Pular — vou digitar a data
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

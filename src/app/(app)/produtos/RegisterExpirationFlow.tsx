@@ -7,7 +7,7 @@ import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { LabelScanner, type LabelScanResult } from "@/components/LabelScanner";
+import { LabelScanWizard, type WizardResult } from "@/components/LabelScanner";
 import { fileToDownscaledDataUrl } from "@/lib/image/downscale";
 import { lookupProduct, registerExpiration, setProductImage } from "./actions";
 
@@ -49,7 +49,7 @@ export function RegisterExpirationFlow() {
     });
   }
 
-  function onLabelResult(r: LabelScanResult) {
+  function onWizardDone(r: WizardResult) {
     setDateOptions(r.dates);
     setNameOptions(r.names);
     if (r.dates[0]) setExpirationDate(r.dates[0]);
@@ -109,11 +109,8 @@ export function RegisterExpirationFlow() {
       <div className="mx-auto max-w-md space-y-4">
         <Card>
           <CardBody className="space-y-3">
-            <h2 className="text-sm font-semibold">1. Qual é o produto?</h2>
-            <p className="text-sm text-[var(--color-muted)]">
-              Aponte para a validade impressa — a AUTORA lê a data e o nome, e guarda a foto.
-            </p>
-            <LabelScanner onResult={onLabelResult} />
+            <h2 className="text-sm font-semibold">1. Escanear o produto</h2>
+            <LabelScanWizard onDone={onWizardDone} />
           </CardBody>
         </Card>
         <Card>
