@@ -80,6 +80,7 @@ export function RegisterExpirationFlow() {
 
   function submit() {
     const qty = Number(quantity);
+    if (!productId && productName.trim().length < 1) return toast.push("Informe o nome do produto", "error");
     if (!Number.isInteger(qty) || qty < 1) return toast.push("Quantidade inválida", "error");
     if (!expirationDate) return toast.push("Informe a data de validade", "error");
     start(async () => {
@@ -109,21 +110,15 @@ export function RegisterExpirationFlow() {
         <Card>
           <CardBody className="space-y-3">
             <h2 className="text-sm font-semibold">1. Qual é o produto?</h2>
-            <BarcodeScanner onDetect={onBarcode} />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="space-y-3">
-            <h2 className="text-sm font-semibold">Escanear a embalagem</h2>
             <p className="text-sm text-[var(--color-muted)]">
-              Aponte para a validade impressa — a AUTORA lê a data e o nome do produto.
+              Aponte para a validade impressa — a AUTORA lê a data e o nome, e guarda a foto.
             </p>
             <LabelScanner onResult={onLabelResult} />
           </CardBody>
         </Card>
         <Card>
           <CardBody className="space-y-3">
-            <p className="text-sm text-[var(--color-muted)]">Ou digite o nome:</p>
+            <p className="text-sm font-semibold">Ou digite o nome</p>
             <div className="flex gap-2">
               <Input
                 placeholder="Ex.: Coca-Cola 2L"
@@ -134,6 +129,14 @@ export function RegisterExpirationFlow() {
                 Continuar
               </Button>
             </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="space-y-3">
+            <p className="text-sm text-[var(--color-muted)]">
+              Tem código de barras? <span className="font-medium">(opcional)</span> — ajuda a reconhecer o produto da próxima vez.
+            </p>
+            <BarcodeScanner onDetect={onBarcode} />
           </CardBody>
         </Card>
       </div>
