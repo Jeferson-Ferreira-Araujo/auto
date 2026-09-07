@@ -45,3 +45,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gh-token
+
+# expo / react-native
+.expo/
+.expo-shared/
