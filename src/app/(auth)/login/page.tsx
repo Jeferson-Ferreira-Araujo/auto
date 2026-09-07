@@ -60,7 +60,12 @@ function LoginForm() {
             {loading ? "Entrando…" : "Entrar"}
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-[var(--color-muted)]">
+        <p className="mt-3 text-center text-sm">
+          <Link href="/recuperar-senha" className="font-medium text-[var(--color-primary)]">
+            Esqueci minha senha
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-sm text-[var(--color-muted)]">
           Não tem conta?{" "}
           <Link href="/signup" className="font-medium text-[var(--color-primary)]">
             Criar conta

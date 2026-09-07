@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
+const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/recuperar-senha", "/nova-senha"];
 
 /**
  * Limite de taxa por IP. Endpoints que já têm autenticação própria e são
@@ -17,7 +17,12 @@ function checkRateLimit(request: NextRequest): NextResponse | null {
   }
 
   const ip = clientIp(request.headers);
-  const isAuth = path === "/login" || path === "/signup" || path.startsWith("/auth");
+  const isAuth =
+    path === "/login" ||
+    path === "/signup" ||
+    path === "/recuperar-senha" ||
+    path === "/nova-senha" ||
+    path.startsWith("/auth");
   const isApi = path.startsWith("/api");
 
   const rule = isAuth
