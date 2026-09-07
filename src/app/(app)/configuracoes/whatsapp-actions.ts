@@ -70,27 +70,3 @@ export const unlinkWhatsApp = orgAction(z.object({}), async (_input, { org }) =>
   revalidatePath("/configuracoes");
   return { unlinked: true };
 });
-
-export const setWhatsappOutreach = orgAction(
-  z.object({ enabled: z.boolean() }),
-  async (input, { org }) => {
-    await prisma.organization.update({
-      where: { id: org.id },
-      data: { whatsappOutreachEnabled: input.enabled },
-    });
-    revalidatePath("/configuracoes");
-    return { enabled: input.enabled };
-  },
-);
-
-export const setWhatsappPromoMessage = orgAction(
-  z.object({ message: z.string().trim().max(900) }),
-  async (input, { org }) => {
-    await prisma.organization.update({
-      where: { id: org.id },
-      data: { whatsappPromoMessage: input.message.length ? input.message : null },
-    });
-    revalidatePath("/configuracoes");
-    return { set: input.message.length > 0 };
-  },
-);

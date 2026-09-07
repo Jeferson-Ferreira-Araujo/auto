@@ -52,7 +52,7 @@ export const createCoupon = orgAction(couponInput, async (input, { org, user }) 
       expiresAt: expiresAtFrom(input.expiresOn),
     },
   });
-  revalidatePath("/configuracoes");
+  revalidatePath("/produtos");
   return { code: input.code };
 });
 
@@ -62,7 +62,7 @@ export const toggleCoupon = orgAction(
     const c = await prisma.coupon.findFirst({ where: { id: input.id, organizationId: org.id } });
     if (!c) throw notFound("Cupom não encontrado.");
     await prisma.coupon.update({ where: { id: c.id }, data: { active: input.active } });
-    revalidatePath("/configuracoes");
+    revalidatePath("/produtos");
     return { id: c.id, active: input.active };
   },
 );
@@ -76,6 +76,6 @@ export const deleteCoupon = orgAction(z.object({ id: z.string().min(1) }), async
     throw validation("Este cupom já foi usado; foi apenas desativado, não apagado.");
   }
   await prisma.coupon.delete({ where: { id: c.id } });
-  revalidatePath("/configuracoes");
+  revalidatePath("/produtos");
   return { id: c.id };
 });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireOrgOrOnboarding } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { EXPIRATION_STATUS_LABEL, EXPIRATION_STATUS_TONE, formatExpirationDate }
 import { ProductThumb } from "@/components/ProductThumb";
 import { RegisterExpirationFlow } from "./RegisterExpirationFlow";
 import { ExpirationList } from "./ExpirationList";
+import { CouponsManager, type CouponView } from "./CouponsManager";
 
 function daysText(r: ExpirationRow): string {
   if (r.daysLeft < 0) return `venceu há ${Math.abs(r.daysLeft)} dia(s)`;
@@ -75,6 +77,32 @@ export default async function ProdutosPage({
 }) {
   const { org } = await requireOrgOrOnboarding();
   const sp = await searchParams;
+
+  if (sp.view === "cupons") {
+    const coupons: CouponView[] = (
+      await prisma.coupon.findMany({ where: { organizationId: org.id }, orderBy: { createdAt: "desc" }, take: 30 })
+    ).map((c) => ({
+      id: c.id,
+      code: c.code,
+      description: c.description,
+      kind: c.kind,
+      value: c.value,
+      minOrderCents: c.minOrderCents,
+      expiresAt: c.expiresAt?.toISOString() ?? null,
+      active: c.active,
+      timesSent: c.timesSent,
+      timesRedeemed: c.timesRedeemed,
+    }));
+    return (
+      <>
+        <PageHeader title="Cupons de desconto" description="Códigos de desconto para as promoções." />
+        <Link href="/produtos" className="mb-4 inline-block text-sm text-[var(--color-primary)]">
+          ← Painel
+        </Link>
+        <CouponsManager coupons={coupons} />
+      </>
+    );
+  }
 
   if (sp.view === "registrar") {
     return (
@@ -147,13 +175,16 @@ export default async function ProdutosPage({
         </div>
       )}
 
-      {total > 0 && (
-        <div className="mt-4">
-          <Link href="/produtos?view=lista" className="text-sm font-medium text-[var(--color-primary)]">
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
+        {total > 0 && (
+          <Link href="/produtos?view=lista" className="text-[var(--color-primary)]">
             Ver todas as validades →
           </Link>
-        </div>
-      )}
+        )}
+        <Link href="/produtos?view=cupons" className="text-[var(--color-primary)]">
+          Cupons de desconto →
+        </Link>
+      </div>
     </>
   );
 }
