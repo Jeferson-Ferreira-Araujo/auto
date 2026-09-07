@@ -161,9 +161,21 @@ export const WhatsAppService = {
     nameStatus: string | null;
   }> {
     const c = cfg();
-    const res = (await metaFetch(
-      `${c.graph}/${c.phoneNumberId}?fields=quality_rating,messaging_limit_tier,name_status`,
-    )) as { quality_rating?: string; messaging_limit_tier?: string; name_status?: string };
+    const read = (fields: string) =>
+      metaFetch(`${c.graph}/${c.phoneNumberId}?fields=${fields}`) as Promise<{
+        quality_rating?: string;
+        messaging_limit_tier?: string;
+        name_status?: string;
+      }>;
+
+    // Alguns campos podem não existir dependendo da versão da API — se o pedido
+    // completo falhar, tenta só o essencial (quality_rating).
+    let res: Awaited<ReturnType<typeof read>>;
+    try {
+      res = await read("quality_rating,messaging_limit_tier,name_status");
+    } catch {
+      res = await read("quality_rating");
+    }
     return {
       qualityRating: res.quality_rating ?? null,
       messagingLimitTier: res.messaging_limit_tier ?? null,
