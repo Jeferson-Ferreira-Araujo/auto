@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { passwordError } from "@/lib/auth/password";
+import { PasswordChecklist } from "@/components/PasswordChecklist";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
 
@@ -28,7 +30,8 @@ export default function NewPasswordPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) return setError("A senha precisa ter pelo menos 6 caracteres.");
+    const pwErr = passwordError(password);
+    if (pwErr) return setError(pwErr);
     if (password !== confirm) return setError("As senhas não coincidem.");
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
@@ -89,16 +92,17 @@ export default function NewPasswordPage() {
       <CardBody>
         <h1 className="mb-4 text-lg font-semibold">Criar nova senha</h1>
         <form onSubmit={onSubmit}>
-          <Field label="Nova senha" hint="Mínimo de 6 caracteres">
+          <Field label="Nova senha">
             <Input
               type="password"
               required
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
           </Field>
+          <PasswordChecklist password={password} />
           <Field label="Confirme a nova senha">
             <Input
               type="password"
@@ -110,7 +114,7 @@ export default function NewPasswordPage() {
             />
           </Field>
           {error && <p className="mb-3 text-sm text-[var(--color-danger)]">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || !!passwordError(password) || password !== confirm}>
             {loading ? "Salvando…" : "Salvar nova senha"}
           </Button>
         </form>

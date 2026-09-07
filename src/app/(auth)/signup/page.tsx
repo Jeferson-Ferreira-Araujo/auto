@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publicEnv } from "@/lib/env";
+import { passwordError } from "@/lib/auth/password";
+import { PasswordChecklist } from "@/components/PasswordChecklist";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
 
@@ -19,6 +21,11 @@ export default function SignupPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const pwErr = passwordError(password);
+    if (pwErr) {
+      setError(pwErr);
+      return;
+    }
     setLoading(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
@@ -64,16 +71,17 @@ export default function SignupPage() {
           <Field label="E-mail">
             <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </Field>
-          <Field label="Senha" hint="Mínimo de 6 caracteres">
+          <Field label="Senha">
             <Input
               type="password"
               required
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
           </Field>
+          <PasswordChecklist password={password} />
           {error && <p className="mb-3 text-sm text-[var(--color-danger)]">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Criando…" : "Criar conta"}
