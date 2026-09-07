@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge, Card, CardBody } from "@/components/ui/primitives";
 import { AutoPublishToggle } from "@/components/AutoPublishToggle";
 import { whatsappConfigured, whatsappTestNumber } from "@/lib/whatsapp/service";
+import { getWhatsAppHealth } from "@/lib/whatsapp/health";
 import { SettingsForm } from "./SettingsForm";
 import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
 import { LogoUpload } from "./LogoUpload";
@@ -28,12 +29,17 @@ export default async function ConfiguracoesPage({
   const mediaCount = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
 
   const configured = whatsappConfigured();
-  const waContact = configured
-    ? await prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } })
-    : null;
+  const [waContact, waHealth] = configured
+    ? await Promise.all([
+        prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } }),
+        getWhatsAppHealth(),
+      ])
+    : [null, null];
   const whatsappState: WhatsAppState = {
     configured,
     testNumber: configured ? whatsappTestNumber() : null,
+    outreachEnabled: org.whatsappOutreachEnabled,
+    health: waHealth,
     contact: waContact
       ? {
           phoneE164: waContact.phoneE164,

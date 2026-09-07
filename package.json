@@ -18,7 +18,8 @@
     "cron:sync-insights": "tsx --env-file=.env scripts/cron-worker/index.ts sync-insights",
     "cron:detect-expirations": "tsx --env-file=.env scripts/cron-worker/index.ts detect-expirations",
     "cron:process-events": "tsx --env-file=.env scripts/cron-worker/index.ts process-events",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "cron:whatsapp-health": "tsx --env-file=.env scripts/cron-worker/index.ts whatsapp-health"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1125.0",

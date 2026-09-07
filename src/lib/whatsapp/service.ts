@@ -132,6 +132,45 @@ export const WhatsAppService = {
     return out;
   },
 
+  /**
+   * Eventos de saúde do número (nota de qualidade / limite de mensagens) vindos
+   * no webhook. Campo `phone_number_quality_update` ou `account_update`.
+   */
+  parseHealthEvents(payload: unknown): Array<{ event: string; limitTier?: string }> {
+    const out: Array<{ event: string; limitTier?: string }> = [];
+    const entries = (payload as { entry?: unknown[] })?.entry ?? [];
+    for (const entry of entries) {
+      const changes = (entry as { changes?: unknown[] })?.changes ?? [];
+      for (const change of changes) {
+        const c = change as { field?: string; value?: Record<string, unknown> };
+        if (c.field === "phone_number_quality_update" || c.field === "account_update") {
+          const v = c.value ?? {};
+          const event = String(v.event ?? v.decision ?? v.ban_state ?? c.field);
+          const limitTier = v.current_limit ? String(v.current_limit) : undefined;
+          out.push({ event, limitTier });
+        }
+      }
+    }
+    return out;
+  },
+
+  /** Consulta ativa à Graph API: nota de qualidade e limite de mensagens do número. */
+  async fetchPhoneHealth(): Promise<{
+    qualityRating: string | null;
+    messagingLimitTier: string | null;
+    nameStatus: string | null;
+  }> {
+    const c = cfg();
+    const res = (await metaFetch(
+      `${c.graph}/${c.phoneNumberId}?fields=quality_rating,messaging_limit_tier,name_status`,
+    )) as { quality_rating?: string; messaging_limit_tier?: string; name_status?: string };
+    return {
+      qualityRating: res.quality_rating ?? null,
+      messagingLimitTier: res.messaging_limit_tier ?? null,
+      nameStatus: res.name_status ?? null,
+    };
+  },
+
   /** Passo 1 do download: resolve a URL temporária da mídia. */
   async getMediaMeta(mediaId: string): Promise<{ url: string; mime: string; size: number }> {
     const res = (await metaFetch(`${cfg().graph}/${mediaId}`)) as {

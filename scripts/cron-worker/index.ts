@@ -17,6 +17,7 @@ import { VideoProcessingService } from "@/lib/video/service";
 import { InstagramInsightsService } from "@/lib/instagram/insights";
 import { runExpirationDetection } from "@/lib/products/detect";
 import { processDomainEvents } from "@/lib/events/process";
+import { refreshWhatsAppHealth } from "@/lib/whatsapp/health";
 
 const JOBS: Record<string, () => Promise<unknown>> = {
   generate: () => runGenerate(),
@@ -26,6 +27,7 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   "sync-insights": () => InstagramInsightsService.syncAll(),
   "detect-expirations": () => runExpirationDetection(),
   "process-events": () => processDomainEvents(),
+  "whatsapp-health": () => refreshWhatsAppHealth(),
   // Toca o Postgres para o projeto Supabase (plano free) não entrar em suspensão
   // por inatividade. Ver .github/workflows/keepalive.yml.
   keepalive: () => prisma.$queryRaw`SELECT 1`,

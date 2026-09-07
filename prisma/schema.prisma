@@ -183,6 +183,8 @@ model Organization {
   /// Limites (configuráveis) de status de validade — dias.
   expiryWarningDays   Int               @default(30)
   expiryUrgentDays    Int               @default(7)
+  /// Interruptor do envio de mensagens de divulgação no WhatsApp (o admin desliga se a qualidade cair).
+  whatsappOutreachEnabled Boolean       @default(true)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -470,6 +472,23 @@ model WhatsAppEvent {
   @@index([phoneE164, createdAt])
   @@index([organizationId, createdAt])
   @@map("whatsapp_events")
+}
+
+/// Saúde do número do WhatsApp (nota de qualidade e limite de mensagens da Meta).
+/// Singleton — o número é único da plataforma. `id` sempre "singleton".
+model WhatsAppHealth {
+  id                 String    @id
+  phoneNumberId      String
+  qualityRating      String? // GREEN | YELLOW | RED | UNKNOWN
+  messagingLimitTier String? // TIER_250 | TIER_1K | TIER_10K | TIER_100K | TIER_UNLIMITED
+  nameStatus         String?
+  lastEvent          String? // último evento de webhook (FLAGGED | UNFLAGGED | ...)
+  lastEventAt        DateTime?
+  checkedAt          DateTime? // última consulta ativa à Graph API
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("whatsapp_health")
 }
 
 // ─────────────────────────── Melhoria automática de vídeo (Reels) ───────────────────────────

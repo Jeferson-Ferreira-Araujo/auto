@@ -6,13 +6,113 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { formatDateTime } from "@/lib/display";
-import { linkWhatsApp, regenerateWhatsAppCode, unlinkWhatsApp } from "./whatsapp-actions";
+import type { WhatsAppHealthView } from "@/lib/whatsapp/health";
+import {
+  linkWhatsApp,
+  regenerateWhatsAppCode,
+  setWhatsappOutreach,
+  unlinkWhatsApp,
+} from "./whatsapp-actions";
 
 export type WhatsAppState = {
   configured: boolean;
   testNumber: string | null;
+  outreachEnabled: boolean;
+  health: WhatsAppHealthView | null;
   contact: { phoneE164: string; verified: boolean; verifiedAt: string | null; code: string | null } | null;
 };
+
+const RATING_UI: Record<WhatsAppHealthView["qualityRating"], { label: string; cls: string }> = {
+  GREEN: { label: "Verde — boa", cls: "bg-green-100 text-green-800" },
+  YELLOW: { label: "Amarela — atenção", cls: "bg-amber-100 text-amber-800" },
+  RED: { label: "Vermelha — em risco", cls: "bg-red-100 text-red-800" },
+  UNKNOWN: { label: "Sem dados ainda", cls: "bg-slate-100 text-slate-700" },
+};
+
+const EVENT_LABEL: Record<string, string> = {
+  CHECK_FAILED: "falha ao verificar (token do WhatsApp pode ter expirado)",
+  FLAGGED: "número sinalizado pela Meta",
+  UNFLAGGED: "número normalizado",
+  ONBOARDING: "em liberação",
+};
+
+const TIER_LABEL: Record<string, string> = {
+  TIER_50: "50 clientes/dia",
+  TIER_250: "250 clientes/dia",
+  TIER_1K: "1.000 clientes/dia",
+  TIER_10K: "10.000 clientes/dia",
+  TIER_100K: "100.000 clientes/dia",
+  TIER_UNLIMITED: "sem limite",
+};
+
+function WhatsAppHealthPanel({
+  health,
+  outreachEnabled,
+}: {
+  health: WhatsAppHealthView | null;
+  outreachEnabled: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, start] = useTransition();
+  const rating = health?.qualityRating ?? "UNKNOWN";
+  const ui = RATING_UI[rating];
+
+  function toggle(next: boolean) {
+    start(async () => {
+      const res = await setWhatsappOutreach({ enabled: next });
+      if (!res.ok) return toast.push(res.error.message, "error");
+      toast.push(next ? "Divulgação por WhatsApp ativada" : "Divulgação por WhatsApp desativada", "success");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-4 rounded-[var(--radius)] border bg-[var(--color-bg)] p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">Qualidade do número</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ui.cls}`}>{ui.label}</span>
+        {health?.messagingLimitTier && (
+          <span className="text-xs text-[var(--color-muted)]">
+            · limite: {TIER_LABEL[health.messagingLimitTier] ?? health.messagingLimitTier}
+          </span>
+        )}
+      </div>
+
+      {(health?.checkedAt || health?.lastEventAt) && (
+        <p className="mt-1 text-xs text-[var(--color-muted)]">
+          {health?.checkedAt ? `Verificado em ${formatDateTime(health.checkedAt)}` : "Ainda não verificado"}
+          {health?.lastEvent && health?.lastEventAt
+            ? ` · Meta: ${EVENT_LABEL[health.lastEvent] ?? health.lastEvent} (${formatDateTime(health.lastEventAt)})`
+            : ""}
+        </p>
+      )}
+
+      {rating === "RED" || rating === "YELLOW" ? (
+        <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+          A qualidade caiu. Reduza os envios de divulgação e evite mensagens não solicitadas até voltar ao verde,
+          senão o número pode ser limitado ou bloqueado pela Meta.
+        </p>
+      ) : null}
+
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={outreachEnabled}
+          disabled={pending}
+          onChange={(e) => toggle(e.target.checked)}
+          className="h-4 w-4 rounded border-[var(--color-border)]"
+        />
+        <span>
+          Enviar mensagens de <strong>divulgação</strong> aos clientes
+          <span className="block text-xs text-[var(--color-muted)]">
+            Desligue aqui se a qualidade cair. Não afeta o atendimento (respostas continuam normais).
+          </span>
+        </span>
+      </label>
+    </div>
+  );
+}
 
 export function WhatsAppCard({ state }: { state: WhatsAppState }) {
   const router = useRouter();
@@ -131,6 +231,8 @@ export function WhatsAppCard({ state }: { state: WhatsAppState }) {
             </p>
           </div>
         )}
+
+        <WhatsAppHealthPanel health={state.health} outreachEnabled={state.outreachEnabled} />
       </CardBody>
     </Card>
   );

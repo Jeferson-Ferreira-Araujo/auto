@@ -70,3 +70,15 @@ export const unlinkWhatsApp = orgAction(z.object({}), async (_input, { org }) =>
   revalidatePath("/configuracoes");
   return { unlinked: true };
 });
+
+export const setWhatsappOutreach = orgAction(
+  z.object({ enabled: z.boolean() }),
+  async (input, { org }) => {
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { whatsappOutreachEnabled: input.enabled },
+    });
+    revalidatePath("/configuracoes");
+    return { enabled: input.enabled };
+  },
+);

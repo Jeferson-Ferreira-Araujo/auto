@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { childLogger } from "@/lib/logger";
 import { WhatsAppService, whatsappConfigured } from "@/lib/whatsapp/service";
 import { handleInboundMessage } from "@/lib/whatsapp/inbound";
+import { recordWhatsAppHealthEvent } from "@/lib/whatsapp/health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,13 @@ export async function POST(req: NextRequest) {
     payload = JSON.parse(raw);
   } catch {
     return NextResponse.json({ ok: true });
+  }
+
+  for (const ev of WhatsAppService.parseHealthEvents(payload)) {
+    log.warn({ event: ev.event, limitTier: ev.limitTier }, "evento de saúde do número WhatsApp");
+    await recordWhatsAppHealthEvent(ev.event, ev.limitTier).catch((err) =>
+      log.error({ err }, "falha ao processar evento de saúde"),
+    );
   }
 
   const messages = WhatsAppService.parseWebhook(payload);
