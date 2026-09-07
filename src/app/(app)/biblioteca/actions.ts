@@ -109,7 +109,13 @@ export const deleteMedia = orgAction(z.object({ id: z.string().min(1) }), async 
     throw validation("Há publicações agendadas usando esta mídia. Cancele-as antes de excluir.");
   }
 
-  await prisma.mediaAsset.delete({ where: { id: asset.id } });
+  // ScheduledPost referencia MediaAsset com onDelete: Restrict — publicações já
+  // concluídas/canceladas/falhas ainda "seguram" a mídia. Removemos esse histórico
+  // (o log de publicação vai junto; as métricas em MediaInsight ficam, só desvinculadas).
+  await prisma.$transaction([
+    prisma.scheduledPost.deleteMany({ where: { mediaAssetId: asset.id } }),
+    prisma.mediaAsset.delete({ where: { id: asset.id } }),
+  ]);
   await Promise.all(
     [
       asset.storageKey,
