@@ -42,6 +42,15 @@ const IMAGE_MIME: Record<string, string> = {
   png: "image/png",
 };
 
+/** Confere os magic bytes — o Content-Type declarado não basta. */
+function sniffImage(buf: Buffer): "webp" | "jpeg" | "png" | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpeg";
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "png";
+  if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return "webp";
+  return null;
+}
+
 /** Salva/atualiza a foto do produto (data URL já reduzida no navegador) no R2. */
 export const setProductImage = orgAction(setProductImageSchema, async (input, { org }) => {
   const product = await prisma.product.findFirst({
@@ -54,10 +63,13 @@ export const setProductImage = orgAction(setProductImageSchema, async (input, { 
   if (!match) throw validation("Formato de imagem inválido.");
   const [, subtype, b64] = match;
   const buffer = Buffer.from(b64, "base64");
-  if (buffer.length > 900_000) throw validation("Imagem muito grande. Tente novamente.");
+  if (buffer.length < 100 || buffer.length > 900_000) throw validation("Imagem inválida ou muito grande.");
 
-  const key = buildKey(org.id, "product", subtype === "jpeg" ? "jpg" : subtype);
-  await putObject(key, buffer, IMAGE_MIME[subtype]);
+  const sniffed = sniffImage(buffer);
+  if (!sniffed || sniffed !== subtype) throw validation("O arquivo não é uma imagem válida.");
+
+  const key = buildKey(org.id, "product", sniffed === "jpeg" ? "jpg" : sniffed);
+  await putObject(key, buffer, IMAGE_MIME[sniffed]);
 
   const previous = product.imageKey;
   await prisma.product.update({ where: { id: product.id }, data: { imageKey: key } });

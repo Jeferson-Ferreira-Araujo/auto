@@ -18,6 +18,9 @@ on:
         description: "lista separada por vírgula: generate,publish,refresh-tokens,video-recover,sync-insights"
         required: true
 
+permissions:
+  contents: read
+
 concurrency:
   group: cron-${{ github.event.schedule || github.event.inputs.jobs }}
   cancel-in-progress: false

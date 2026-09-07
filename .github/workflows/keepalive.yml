@@ -13,6 +13,9 @@ on:
     - cron: "31 7 * * *" # 1x/dia (7 dias de folga na janela de suspensão)
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: keepalive
   cancel-in-progress: false

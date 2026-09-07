@@ -1,8 +1,39 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
+
+/**
+ * Limite de taxa por IP. Endpoints que já têm autenticação própria e são
+ * chamados por terceiros (webhook da Meta com assinatura, cron com segredo)
+ * ficam de fora.
+ */
+function checkRateLimit(request: NextRequest): NextResponse | null {
+  const path = request.nextUrl.pathname;
+  if (path.startsWith("/api/whatsapp") || path.startsWith("/api/cron") || path.startsWith("/_next")) {
+    return null;
+  }
+
+  const ip = clientIp(request.headers);
+  const isAuth = path === "/login" || path === "/signup" || path.startsWith("/auth");
+  const isApi = path.startsWith("/api");
+
+  const rule = isAuth
+    ? { key: `auth:${ip}`, limit: 20, windowMs: 5 * 60_000 }
+    : isApi
+      ? { key: `api:${ip}`, limit: 120, windowMs: 60_000 }
+      : { key: `page:${ip}`, limit: 300, windowMs: 60_000 };
+
+  const res = rateLimit(rule.key, rule.limit, rule.windowMs);
+  if (res.ok) return null;
+
+  return new NextResponse("Muitas requisições. Tente novamente em instantes.", {
+    status: 429,
+    headers: { "retry-after": String(res.retryAfter), "cache-control": "no-store" },
+  });
+}
 
 /** Rotas consolidadas na reorganização modular (AUTORA). */
 const MOVED: Record<string, string> = {
@@ -12,6 +43,9 @@ const MOVED: Record<string, string> = {
 
 /** Renova a sessão, protege as rotas privadas e resolve a raiz "/". */
 export async function updateSession(request: NextRequest) {
+  const limited = checkRateLimit(request);
+  if (limited) return limited;
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
