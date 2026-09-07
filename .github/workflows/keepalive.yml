@@ -1,0 +1,50 @@
+name: keepalive
+
+# Mantém o projeto Supabase (plano free) fora do modo de suspensão.
+# O plano free pausa o projeto após ~7 dias SEM nenhuma atividade. Este job faz
+# um toque diário no banco — independente do workflow `cron`, então continua
+# funcionando mesmo que o cron principal quebre ou seja desativado.
+#
+# Também serve de canário: se o banco não responder, o job falha e o GitHub
+# manda e-mail.
+
+on:
+  schedule:
+    - cron: "31 7 * * *" # 1x/dia (7 dias de folga na janela de suspensão)
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Toque no Postgres via PostgREST
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "Faltam os secrets NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY."
+            echo "Rode: node scripts/setup-gh-secrets.mjs"
+            exit 1
+          fi
+          # Endpoint de tabela: o PostgREST executa um SELECT no Postgres mesmo que
+          # o RLS bloqueie as linhas (200 com []), ou o Postgres negue (401/403).
+          # Qualquer um desses três significa "o banco respondeu".
+          code=$(curl -s -o /tmp/body -w '%{http_code}' \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/organizations?select=id&limit=1")
+          echo "HTTP ${code}"
+          head -c 300 /tmp/body || true
+          echo
+          case "${code}" in
+            200|206|401|403|404) echo "Banco ativo."; exit 0 ;;
+            000)                 echo "Sem resposta (rede)."; exit 1 ;;
+            *)                   echo "Resposta inesperada — projeto pode estar pausado."; exit 1 ;;
+          esac

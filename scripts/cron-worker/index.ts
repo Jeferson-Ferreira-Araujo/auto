@@ -26,6 +26,9 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   "sync-insights": () => InstagramInsightsService.syncAll(),
   "detect-expirations": () => runExpirationDetection(),
   "process-events": () => processDomainEvents(),
+  // Toca o Postgres para o projeto Supabase (plano free) não entrar em suspensão
+  // por inatividade. Ver .github/workflows/keepalive.yml.
+  keepalive: () => prisma.$queryRaw`SELECT 1`,
 };
 
 async function main(): Promise<number> {
