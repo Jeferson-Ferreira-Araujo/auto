@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icons";
 import { getExpirationBoard, listExpirations, type ExpirationRow } from "@/lib/products/queries";
 import { EXPIRATION_STATUS_LABEL, EXPIRATION_STATUS_TONE, formatExpirationDate } from "@/lib/products/status";
+import { ProductThumb } from "@/components/ProductThumb";
 import { RegisterExpirationFlow } from "./RegisterExpirationFlow";
 import { ExpirationList } from "./ExpirationList";
 
@@ -48,8 +49,9 @@ function BucketCard({
         ) : (
           <ul className="mt-2 divide-y text-sm">
             {items.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-2 py-2">
-                <div className="min-w-0">
+              <li key={r.id} className="flex items-center gap-2.5 py-2">
+                <ProductThumb productId={r.productId} hasImage={r.hasImage} size={40} />
+                <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{r.productName}</div>
                   <div className="text-xs text-[var(--color-muted)]">
                     {r.quantity} un · {formatExpirationDate(r.expirationDate)} · {daysText(r)}

@@ -35,7 +35,8 @@ export type MediaKind =
   | "enhanced"
   | "logo"
   | "watermark"
-  | "watermarked";
+  | "watermarked"
+  | "product";
 
 /** Gera uma chave segura e opaca, isolada por organização. O nome original nunca vira chave. */
 export function buildKey(organizationId: string, kind: MediaKind, ext: string): string {

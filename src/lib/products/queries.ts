@@ -17,6 +17,7 @@ export type ExpirationRow = {
   status: ExpirationStatus;
   daysLeft: number;
   outcome: ExpirationOutcome;
+  hasImage: boolean;
 };
 
 export type ExpirationBoard = {
@@ -44,7 +45,7 @@ async function loadBoard(orgId: string): Promise<ExpirationBoard> {
 
   const rows = await prisma.productExpiration.findMany({
     where: { organizationId: orgId, outcome: "PENDING", expirationDate: { lte: horizon } },
-    include: { product: { select: { name: true, barcode: true } } },
+    include: { product: { select: { name: true, barcode: true, imageKey: true } } },
     orderBy: { expirationDate: "asc" },
   });
 
@@ -71,6 +72,7 @@ async function loadBoard(orgId: string): Promise<ExpirationBoard> {
       status,
       daysLeft,
       outcome: r.outcome,
+      hasImage: Boolean(r.product.imageKey),
     };
     if (status === "VENCIDO") {
       board.counts.vencido++;
@@ -117,7 +119,7 @@ export async function listExpirations(
       outcome: filter.outcome ?? undefined,
       product: filter.q ? { name: { contains: filter.q, mode: "insensitive" } } : undefined,
     },
-    include: { product: { select: { name: true, barcode: true } } },
+    include: { product: { select: { name: true, barcode: true, imageKey: true } } },
     orderBy: { expirationDate: "asc" },
     take: 200,
   });
@@ -138,6 +140,7 @@ export async function listExpirations(
         status,
         daysLeft,
         outcome: r.outcome,
+        hasImage: Boolean(r.product.imageKey),
       };
     })
     .filter((r) => (filter.status ? r.status === filter.status : true));

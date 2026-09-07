@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { EXPIRATION_STATUS_LABEL, EXPIRATION_STATUS_TONE, formatExpirationDate } from "@/lib/products/status";
 import type { ExpirationRow } from "@/lib/products/queries";
+import { ProductThumb } from "@/components/ProductThumb";
 import { resolveExpiration } from "./actions";
 
 const OUTCOMES: { value: "SOLD" | "DISCARDED" | "PRICED_DOWN"; label: string }[] = [
@@ -41,15 +42,18 @@ export function ExpirationList({ rows }: { rows: ExpirationRow[] }) {
       <CardBody className="divide-y p-0">
         {rows.map((r) => (
           <div key={r.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate font-medium">{r.productName}</span>
-                <Badge tone={EXPIRATION_STATUS_TONE[r.status]}>{EXPIRATION_STATUS_LABEL[r.status]}</Badge>
-              </div>
-              <div className="text-xs text-[var(--color-muted)]">
-                {r.quantity} un · vence {formatExpirationDate(r.expirationDate)}
-                {r.location ? ` · ${r.location}` : ""}
-                {r.lot ? ` · lote ${r.lot}` : ""}
+            <div className="flex min-w-0 items-center gap-3">
+              <ProductThumb productId={r.productId} hasImage={r.hasImage} size={44} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-medium">{r.productName}</span>
+                  <Badge tone={EXPIRATION_STATUS_TONE[r.status]}>{EXPIRATION_STATUS_LABEL[r.status]}</Badge>
+                </div>
+                <div className="text-xs text-[var(--color-muted)]">
+                  {r.quantity} un · vence {formatExpirationDate(r.expirationDate)}
+                  {r.location ? ` · ${r.location}` : ""}
+                  {r.lot ? ` · lote ${r.lot}` : ""}
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5">

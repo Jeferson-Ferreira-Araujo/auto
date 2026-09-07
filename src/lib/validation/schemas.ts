@@ -123,3 +123,12 @@ export const resolveExpirationSchema = z.object({
 export const lookupProductSchema = z.object({
   barcode: z.string().trim().regex(/^\d{8,14}$/, "Código de barras inválido"),
 });
+
+export const setProductImageSchema = z.object({
+  productId: z.string().min(1),
+  // data URL de imagem já reduzida no navegador (~<200 KB); o limite é defensivo.
+  dataUrl: z
+    .string()
+    .regex(/^data:image\/(webp|jpeg|png);base64,/, "Formato de imagem inválido")
+    .max(1_400_000, "Imagem muito grande"),
+});

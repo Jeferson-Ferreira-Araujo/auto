@@ -570,6 +570,7 @@ model Product {
   organizationId String
   name           String
   barcode        String?
+  imageKey       String? // chave R2 da foto do produto (bucket privado, servida via /api/media?product=)
   active         Boolean  @default(true)
   createdById    String   @db.Uuid
   createdAt      DateTime @default(now())

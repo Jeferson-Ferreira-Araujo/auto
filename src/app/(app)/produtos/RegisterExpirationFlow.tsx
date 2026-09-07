@@ -4,10 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
+import { Icon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { LabelScanner, type LabelScanResult } from "@/components/LabelScanner";
-import { lookupProduct, registerExpiration } from "./actions";
+import { fileToDownscaledDataUrl } from "@/lib/image/downscale";
+import { lookupProduct, registerExpiration, setProductImage } from "./actions";
 
 function formatISOToBR(iso: string): string {
   const [y, m, d] = iso.split("-");
@@ -31,6 +33,7 @@ export function RegisterExpirationFlow() {
   const [lot, setLot] = useState("");
   const [dateOptions, setDateOptions] = useState<string[]>([]);
   const [nameOptions, setNameOptions] = useState<string[]>([]);
+  const [photo, setPhoto] = useState<string | null>(null);
 
   function onBarcode(code: string) {
     setBarcode(code);
@@ -51,9 +54,21 @@ export function RegisterExpirationFlow() {
     setNameOptions(r.names);
     if (r.dates[0]) setExpirationDate(r.dates[0]);
     if (r.names[0] && productName.trim().length === 0) setProductName(r.names[0]);
+    if (r.photo) setPhoto(r.photo);
     setBarcode(null);
     setProductId(null);
     setStep("details");
+  }
+
+  async function onPhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      setPhoto(await fileToDownscaledDataUrl(file));
+    } catch {
+      toast.push("Não consegui abrir essa imagem", "error");
+    }
   }
 
   function useTypedName() {
@@ -78,6 +93,10 @@ export function RegisterExpirationFlow() {
         location: location.trim() || null,
       });
       if (!res.ok) return toast.push(res.error.message, "error");
+      if (photo) {
+        const up = await setProductImage({ productId: res.data.productId, dataUrl: photo });
+        if (!up.ok) toast.push("Validade salva, mas a foto não subiu.", "error");
+      }
       toast.push(`Validade registrada: ${res.data.productName}`, "success");
       router.push("/produtos");
       router.refresh();
@@ -149,6 +168,30 @@ export function RegisterExpirationFlow() {
               )}
             </Field>
           )}
+
+          <Field label="Foto do produto (opcional)">
+            <div className="flex items-center gap-3">
+              {photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photo} alt="" className="h-16 w-16 shrink-0 rounded-md border object-cover" />
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-[var(--color-bg)] text-[var(--color-muted)]">
+                  <Icon.box width={22} height={22} />
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                <label className="cursor-pointer rounded-md bg-[var(--color-primary-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)]">
+                  {photo ? "Trocar foto" : "Tirar / escolher foto"}
+                  <input type="file" accept="image/*" capture="environment" onChange={onPhotoFile} className="hidden" />
+                </label>
+                {photo && (
+                  <button type="button" onClick={() => setPhoto(null)} className="text-left text-xs text-[var(--color-muted)] hover:text-[var(--color-danger)]">
+                    Remover
+                  </button>
+                )}
+              </div>
+            </div>
+          </Field>
 
           <Field label="Quantidade">
             <Input

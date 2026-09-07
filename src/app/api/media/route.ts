@@ -30,6 +30,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(await presignGet(org.watermarkStorageKey, 900), { status: 302 });
     }
 
+    const productId = req.nextUrl.searchParams.get("product");
+    if (productId) {
+      const product = await prisma.product.findFirst({
+        where: { id: productId, organizationId: org.id },
+        select: { imageKey: true },
+      });
+      if (!product?.imageKey) throw notFound("Produto sem foto");
+      return NextResponse.redirect(await presignGet(product.imageKey, 900), { status: 302 });
+    }
+
     const id = req.nextUrl.searchParams.get("id");
     const variant = req.nextUrl.searchParams.get("variant") ?? "thumb";
     if (!id) throw validation("id ausente");

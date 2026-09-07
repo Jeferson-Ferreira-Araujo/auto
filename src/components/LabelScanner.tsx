@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { parseExpirationDates, parseProductNameCandidates } from "@/lib/products/label-parse";
+import { downscaleToDataUrl } from "@/lib/image/downscale";
 
 export type LabelScanResult = {
   dates: string[]; // ISO aaaa-mm-dd, mais provável primeiro
   names: string[];
   text: string;
+  photo?: string; // data URL colorida (reduzida) do que foi escaneado
 };
 
 /**
@@ -93,7 +95,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
     return canvas;
   }
 
-  async function runOcr(canvas: HTMLCanvasElement) {
+  async function runOcr(canvas: HTMLCanvasElement, photo?: string) {
     setBusy(true);
     setProgress(0);
     setError(null);
@@ -105,6 +107,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
         dates: parseExpirationDates(text),
         names: parseProductNameCandidates(text),
         text,
+        photo,
       };
       if (!result.dates.length && !result.names.length) {
         setError("Não consegui ler o rótulo. Tente aproximar, focar a validade e evitar reflexo — ou preencha manualmente.");
@@ -117,10 +120,18 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
     }
   }
 
+  function safePhoto(source: CanvasImageSource): string | undefined {
+    try {
+      return downscaleToDataUrl(source as HTMLVideoElement | HTMLImageElement);
+    } catch {
+      return undefined;
+    }
+  }
+
   function captureFromCamera() {
     const v = videoRef.current;
     if (!v || !v.videoWidth) return;
-    void runOcr(preprocess(v, v.videoWidth, v.videoHeight));
+    void runOcr(preprocess(v, v.videoWidth, v.videoHeight), safePhoto(v));
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -131,7 +142,7 @@ export function LabelScanner({ onResult }: { onResult: (r: LabelScanResult) => v
     const im = new Image();
     im.onload = () => {
       URL.revokeObjectURL(url);
-      void runOcr(preprocess(im, im.naturalWidth, im.naturalHeight));
+      void runOcr(preprocess(im, im.naturalWidth, im.naturalHeight), safePhoto(im));
     };
     im.onerror = () => {
       URL.revokeObjectURL(url);
