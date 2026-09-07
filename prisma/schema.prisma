@@ -164,6 +164,7 @@ model User {
   whatsappContacts   WhatsAppContact[]
   productsCreated    Product[]            @relation("ProductCreatedBy")
   expirationsCreated ProductExpiration[]  @relation("ExpirationCreatedBy")
+  deliveryOrders     DeliveryOrder[]      @relation("DeliveryOrderBy")
 
   @@map("users")
 }
@@ -185,6 +186,8 @@ model Organization {
   expiryUrgentDays    Int               @default(7)
   /// Interruptor do envio de mensagens de divulgação no WhatsApp (o admin desliga se a qualidade cair).
   whatsappOutreachEnabled Boolean       @default(true)
+  /// Texto da promoção enviada no dia seguinte ao pedido. NULL = divulgação desligada.
+  whatsappPromoMessage    String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -203,6 +206,8 @@ model Organization {
   productExpirations ProductExpiration[]
   domainEvents       DomainEvent[]
   automationRules    AutomationRule[]
+  whatsappCustomers  WhatsAppCustomer[]
+  deliveryOrders     DeliveryOrder[]
 
   @@map("organizations")
 }
@@ -472,6 +477,51 @@ model WhatsAppEvent {
   @@index([phoneE164, createdAt])
   @@index([organizationId, createdAt])
   @@map("whatsapp_events")
+}
+
+/// Cliente da empresa que fala pelo WhatsApp (delivery). Mínimo — só o necessário
+/// para consentimento de divulgação e a régua de "pediu ontem". NÃO é um CRM.
+model WhatsAppCustomer {
+  id               String    @id @default(cuid())
+  organizationId   String
+  phoneE164        String
+  name             String?
+  promoConsent     Boolean   @default(false)
+  promoConsentAt   DateTime?
+  promoConsentText String? // texto da resposta do cliente (prova do opt-in, LGPD)
+  promoAskedAt     DateTime? // quando pedimos — janela para interpretar SIM/NÃO
+  promoOptOutAt    DateTime?
+  lastOrderAt      DateTime?
+  lastInboundAt    DateTime? // última mensagem do cliente — controle da janela de 24h
+  lastPromoAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orders       DeliveryOrder[]
+
+  @@unique([organizationId, phoneE164])
+  @@index([organizationId, promoConsent, lastOrderAt])
+  @@map("whatsapp_customers")
+}
+
+/// Pedido de delivery registrado pela atendente (comando `pedido <telefone>`).
+/// Serve de log e de gatilho para o pedido de consentimento.
+model DeliveryOrder {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  valueCents     Int?
+  note           String?
+  registeredById String   @db.Uuid
+  createdAt      DateTime @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     WhatsAppCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  registeredBy User             @relation("DeliveryOrderBy", fields: [registeredById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("delivery_orders")
 }
 
 /// Saúde do número do WhatsApp (nota de qualidade e limite de mensagens da Meta).

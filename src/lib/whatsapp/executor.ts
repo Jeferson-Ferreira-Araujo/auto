@@ -20,6 +20,7 @@ import {
   HELP_TEXT,
 } from "./commands";
 import { describeWhen } from "./dates";
+import { registerDeliveryOrder } from "./promo";
 import type { ExecResult, ParsedCommand, PendingAction, ReportRange } from "./types";
 
 const log = childLogger({ mod: "whatsapp/executor" });
@@ -349,6 +350,25 @@ export async function executeCommand(
 
     case "AWAIT_MEDIA":
       return awaitMediaText(parsed.purpose);
+
+    case "REGISTER_ORDER": {
+      const res = await registerDeliveryOrder(org.id, contact.userId, {
+        phoneRaw: parsed.phone,
+        valueCents: parsed.valueCents,
+      });
+      if (!res.ok) return text(`❌ ${res.error}`);
+      const val = parsed.valueCents ? ` (R$ ${(parsed.valueCents / 100).toFixed(2).replace(".", ",")})` : "";
+      if (res.status === "opted_out") {
+        return text(`Pedido registrado${val}. O cliente pediu para não receber promoções — não perguntei de novo.`);
+      }
+      if (res.status === "already_in") {
+        return text(`Pedido registrado${val}. O cliente já autorizou promoções. 👍`);
+      }
+      if (res.status === "send_failed") {
+        return text(`Pedido registrado${val}, mas não consegui enviar o pedido de consentimento pro cliente agora. Tente de novo em instantes.`);
+      }
+      return text(`Pedido registrado${val}. Mandei o pedido de consentimento pro cliente ✅`);
+    }
 
     default:
       log.debug({ parsed }, "comando não reconhecido");

@@ -11,6 +11,7 @@ import { HELP_TEXT } from "./commands";
 import { receiveWhatsAppMedia, WhatsAppMediaError } from "./media";
 import { executeCommand, applyPending } from "./executor";
 import { formatResult } from "./format";
+import { handleCustomerConsentReply } from "./promo";
 import type { IncomingMessage, OutgoingMessage, ParsedCommand, PendingAction } from "./types";
 
 const log = childLogger({ mod: "whatsapp/inbound" });
@@ -58,9 +59,20 @@ export async function handleInboundMessage(msg: IncomingMessage): Promise<void> 
       include: { organization: true },
     });
 
-    // 2. Contato inexistente ou ainda não verificado → fluxo de vínculo.
+    // 2. Contato inexistente ou ainda não verificado → cliente (consentimento) ou vínculo.
     if (!contact || !contact.verifiedAt) {
       const text = msg.type === "text" ? msg.text : "";
+
+      // 2a. É um cliente da empresa respondendo SIM/NÃO/SAIR ao consentimento?
+      if (text) {
+        const consent = await handleCustomerConsentReply(phoneE164, text);
+        if (consent.handled) {
+          await sendOutcome(phoneE164, msg, { kind: "text", text: consent.reply! }, { consent: true }, "PROCESSED");
+          return;
+        }
+      }
+
+      // 2b. Código de vínculo de um operador.
       if (
         contact &&
         !contact.verifiedAt &&
@@ -73,8 +85,19 @@ export async function handleInboundMessage(msg: IncomingMessage): Promise<void> 
           data: { verifiedAt: new Date(), verificationCode: null, verificationExpiresAt: null, lastInboundAt: new Date() },
         });
         await sendOutcome(phoneE164, msg, { kind: "text", text: `✅ WhatsApp vinculado à empresa *${contact.organization.name}*.\n\n${HELP_TEXT}` }, parsedForLog, "PROCESSED");
-      } else {
+        return;
+      }
+
+      // 2c. Contato em processo de vínculo (código errado) → ajuda. Número desconhecido
+      //     que não é código nem consentimento → silêncio (não spammar clientes; a
+      //     atendente responde pelo app em modo de coexistência).
+      const looksLikeCode = /^[a-z0-9]{4,8}$/i.test(text.trim()) || /\d{6}/.test(text);
+      if (contact && !contact.verifiedAt) {
         await sendOutcome(phoneE164, msg, { kind: "text", text: NOT_LINKED }, parsedForLog, "IGNORED");
+      } else if (looksLikeCode) {
+        await sendOutcome(phoneE164, msg, { kind: "text", text: NOT_LINKED }, parsedForLog, "IGNORED");
+      } else {
+        await markEventStatus(msg.wamid, "IGNORED");
       }
       return;
     }
@@ -246,6 +269,10 @@ function confirmValue(text: string, interactiveId: string | null): "yes" | "no" 
 }
 
 // ─────────────── helpers ───────────────
+
+async function markEventStatus(wamid: string, status: "PROCESSED" | "IGNORED" | "FAILED"): Promise<void> {
+  await prisma.whatsAppEvent.updateMany({ where: { wamid, direction: "INBOUND" }, data: { status } });
+}
 
 function previewOf(msg: IncomingMessage): string {
   if (msg.type === "text") return msg.text.slice(0, 200);

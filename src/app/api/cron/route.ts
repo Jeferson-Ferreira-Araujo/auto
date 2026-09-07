@@ -9,6 +9,7 @@ import { InstagramInsightsService } from "@/lib/instagram/insights";
 import { runExpirationDetection } from "@/lib/products/detect";
 import { processDomainEvents } from "@/lib/events/process";
 import { refreshWhatsAppHealth } from "@/lib/whatsapp/health";
+import { sendPendingPromos } from "@/lib/whatsapp/promo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -38,9 +39,11 @@ async function handle(req: NextRequest) {
         return NextResponse.json({ ok: true, job, ...(await processDomainEvents()) });
       case "whatsapp-health":
         return NextResponse.json({ ok: true, job, ...(await refreshWhatsAppHealth()) });
+      case "send-promos":
+        return NextResponse.json({ ok: true, job, ...(await sendPendingPromos()) });
       default:
         throw validation(
-          "Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover | sync-insights | detect-expirations | process-events | whatsapp-health).",
+          "Parâmetro ?job inválido (generate | publish | refresh-tokens | video-recover | sync-insights | detect-expirations | process-events | whatsapp-health | send-promos).",
         );
     }
   } catch (err) {

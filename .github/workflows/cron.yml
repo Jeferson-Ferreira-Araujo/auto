@@ -11,7 +11,8 @@ on:
     - cron: "*/5 * * * *" # publish
     - cron: "*/30 * * * *" # generate + video-recover
     - cron: "0 */3 * * *" # sync-insights
-    - cron: "0 6 * * *" # refresh-tokens
+    - cron: "0 6 * * *" # refresh-tokens + whatsapp-health
+    - cron: "0 11 * * *" # send-promos (~8h BRT — promoção do dia seguinte ao pedido)
   workflow_dispatch:
     inputs:
       jobs:
@@ -44,6 +45,7 @@ jobs:
             "*/30 * * * *") echo "jobs=generate,video-recover,detect-expirations,process-events" >> "$GITHUB_OUTPUT" ;;
             "0 */3 * * *")  echo "jobs=sync-insights" >> "$GITHUB_OUTPUT" ;;
             "0 6 * * *")    echo "jobs=refresh-tokens,whatsapp-health" >> "$GITHUB_OUTPUT" ;;
+            "0 11 * * *")   echo "jobs=send-promos" >> "$GITHUB_OUTPUT" ;;
             *)              echo "jobs=${{ github.event.inputs.jobs }}" >> "$GITHUB_OUTPUT" ;;
           esac
       - name: Run cron worker

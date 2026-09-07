@@ -11,6 +11,7 @@ import {
   linkWhatsApp,
   regenerateWhatsAppCode,
   setWhatsappOutreach,
+  setWhatsappPromoMessage,
   unlinkWhatsApp,
 } from "./whatsapp-actions";
 
@@ -18,6 +19,7 @@ export type WhatsAppState = {
   configured: boolean;
   testNumber: string | null;
   outreachEnabled: boolean;
+  promoMessage: string;
   health: WhatsAppHealthView | null;
   contact: { phoneE164: string; verified: boolean; verifiedAt: string | null; code: string | null } | null;
 };
@@ -48,13 +50,16 @@ const TIER_LABEL: Record<string, string> = {
 function WhatsAppHealthPanel({
   health,
   outreachEnabled,
+  promoMessage,
 }: {
   health: WhatsAppHealthView | null;
   outreachEnabled: boolean;
+  promoMessage: string;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, start] = useTransition();
+  const [msg, setMsg] = useState(promoMessage);
   const rating = health?.qualityRating ?? "UNKNOWN";
   const ui = RATING_UI[rating];
 
@@ -63,6 +68,15 @@ function WhatsAppHealthPanel({
       const res = await setWhatsappOutreach({ enabled: next });
       if (!res.ok) return toast.push(res.error.message, "error");
       toast.push(next ? "Divulgação por WhatsApp ativada" : "Divulgação por WhatsApp desativada", "success");
+      router.refresh();
+    });
+  }
+
+  function saveMsg() {
+    start(async () => {
+      const res = await setWhatsappPromoMessage({ message: msg });
+      if (!res.ok) return toast.push(res.error.message, "error");
+      toast.push(res.data.set ? "Mensagem de promoção salva" : "Promoção desativada (mensagem vazia)", "success");
       router.refresh();
     });
   }
@@ -110,6 +124,34 @@ function WhatsAppHealthPanel({
           </span>
         </span>
       </label>
+
+      <div className="mt-3 border-t pt-3">
+        <p className="text-sm font-medium">Mensagem da promoção</p>
+        <p className="mb-1.5 text-xs text-[var(--color-muted)]">
+          Enviada na manhã seguinte a quem fez pedido e respondeu <strong>SIM</strong>. Deixe em branco para não
+          enviar nada. O “responda SAIR para não receber mais” é adicionado automaticamente.
+        </p>
+        <textarea
+          value={msg}
+          onChange={(e) => setMsg(e.target.value)}
+          rows={3}
+          maxLength={900}
+          placeholder="Ex.: Bom dia! 🥐 Hoje o bolo de fubá está saindo quentinho. Peça o seu!"
+          className="w-full rounded-[var(--radius)] border bg-[var(--color-surface)] p-2 text-sm"
+        />
+        <div className="mt-1.5 flex items-center gap-2">
+          <Button size="sm" onClick={saveMsg} disabled={pending || msg === promoMessage}>
+            Salvar mensagem
+          </Button>
+          {!promoMessage && <span className="text-xs text-[var(--color-muted)]">divulgação inativa (sem mensagem)</span>}
+        </div>
+      </div>
+
+      <p className="mt-3 rounded-md bg-[var(--color-primary-soft)] px-2 py-1.5 text-xs text-[var(--color-primary)]">
+        Como funciona: a atendente confirma o pedido normalmente e envia aqui{" "}
+        <code className="rounded bg-white/60 px-1">pedido 11999998888</code> (opcional: valor). A AUTORA registra e
+        pede o consentimento ao cliente.
+      </p>
     </div>
   );
 }
@@ -232,7 +274,11 @@ export function WhatsAppCard({ state }: { state: WhatsAppState }) {
           </div>
         )}
 
-        <WhatsAppHealthPanel health={state.health} outreachEnabled={state.outreachEnabled} />
+        <WhatsAppHealthPanel
+          health={state.health}
+          outreachEnabled={state.outreachEnabled}
+          promoMessage={state.promoMessage}
+        />
       </CardBody>
     </Card>
   );

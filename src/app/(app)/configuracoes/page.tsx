@@ -39,6 +39,7 @@ export default async function ConfiguracoesPage({
     configured,
     testNumber: configured ? whatsappTestNumber() : null,
     outreachEnabled: org.whatsappOutreachEnabled,
+    promoMessage: org.whatsappPromoMessage ?? "",
     health: waHealth,
     contact: waContact
       ? {

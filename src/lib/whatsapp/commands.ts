@@ -40,6 +40,7 @@ export const HELP_TEXT = [
   "• *salve essa foto na categoria Produtos* · *liste as categorias*",
   "• *como foi meu desempenho essa semana?* · *qual foi minha melhor publicação?*",
   "• *melhore esse vídeo* · *status da conta*",
+  "• *pedido 11999998888* — registra um pedido de delivery e pede o consentimento de promoções ao cliente",
   "",
   "Digite *menu* para as opções.",
 ].join("\n");

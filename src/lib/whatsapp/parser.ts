@@ -112,6 +112,20 @@ export class DeterministicParser implements CommandParser {
     if (YES.test(t)) return { kind: "CONFIRM" };
     if (NO.test(t)) return { kind: "DECLINE" };
 
+    // ── Registrar pedido de delivery: "pedido <telefone> [valor]" ──
+    const pedido = raw.match(
+      /^\s*pedido\s+(?:tel\.?\s*)?(\+?[\d\s().-]{8,20})(?:\s+(?:r\$\s*)?(\d{1,6}(?:[.,]\d{1,2})?))?\s*$/i,
+    );
+    if (pedido) {
+      const phone = pedido[1].replace(/\D/g, "");
+      if (phone.length >= 8) {
+        const valueCents = pedido[2]
+          ? Math.round(Number.parseFloat(pedido[2].replace(",", ".")) * 100)
+          : null;
+        return { kind: "REGISTER_ORDER", phone, valueCents: Number.isFinite(valueCents) ? valueCents : null };
+      }
+    }
+
     // ── Menu / ajuda ──
     if (/^(oi|ola|ol[áa]|opa|bom dia|boa tarde|boa noite|e ai|eai|menu|inicio|come[çc]ar|start)\b/.test(t) ||
         /\b(ajuda|comandos|help|o que voce faz|op[çc][õo]es)\b/.test(t)) {

@@ -49,6 +49,7 @@ export type ParsedCommand =
   | { kind: "BEST_POST"; range: ReportRange }
   | { kind: "ACCOUNT_STATUS" }
   | { kind: "AWAIT_MEDIA"; purpose: "publish" | "library" | "enhance" }
+  | { kind: "REGISTER_ORDER"; phone: string; valueCents: number | null }
   | { kind: "UNKNOWN" };
 
 export type CommandContext = {
