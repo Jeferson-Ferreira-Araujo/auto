@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { LabelScanner, type LabelScanResult } from "@/components/LabelScanner";
 import { lookupProduct, registerExpiration } from "./actions";
+
+function formatISOToBR(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 type Step = "identify" | "details";
 
@@ -23,6 +29,8 @@ export function RegisterExpirationFlow() {
   const [expirationDate, setExpirationDate] = useState("");
   const [location, setLocation] = useState("");
   const [lot, setLot] = useState("");
+  const [dateOptions, setDateOptions] = useState<string[]>([]);
+  const [nameOptions, setNameOptions] = useState<string[]>([]);
 
   function onBarcode(code: string) {
     setBarcode(code);
@@ -36,6 +44,16 @@ export function RegisterExpirationFlow() {
       }
       setStep("details");
     });
+  }
+
+  function onLabelResult(r: LabelScanResult) {
+    setDateOptions(r.dates);
+    setNameOptions(r.names);
+    if (r.dates[0]) setExpirationDate(r.dates[0]);
+    if (r.names[0] && productName.trim().length === 0) setProductName(r.names[0]);
+    setBarcode(null);
+    setProductId(null);
+    setStep("details");
   }
 
   function useTypedName() {
@@ -77,6 +95,15 @@ export function RegisterExpirationFlow() {
         </Card>
         <Card>
           <CardBody className="space-y-3">
+            <h2 className="text-sm font-semibold">Escanear a embalagem</h2>
+            <p className="text-sm text-[var(--color-muted)]">
+              Aponte para a validade impressa — a AUTORA lê a data e o nome do produto.
+            </p>
+            <LabelScanner onResult={onLabelResult} />
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="space-y-3">
             <p className="text-sm text-[var(--color-muted)]">Ou digite o nome:</p>
             <div className="flex gap-2">
               <Input
@@ -106,6 +133,20 @@ export function RegisterExpirationFlow() {
           {!productId && (
             <Field label="Nome do produto">
               <Input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Ex.: Coca-Cola 2L" />
+              {nameOptions.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {nameOptions.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setProductName(n)}
+                      className="rounded-full border px-2.5 py-1 text-xs hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
             </Field>
           )}
 
@@ -120,6 +161,24 @@ export function RegisterExpirationFlow() {
 
           <Field label="Data de validade">
             <Input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} className="text-lg" />
+            {dateOptions.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {dateOptions.map((iso) => (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => setExpirationDate(iso)}
+                    className={`rounded-full border px-2.5 py-1 text-xs hover:border-[var(--color-primary)] ${
+                      expirationDate === iso
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                        : ""
+                    }`}
+                  >
+                    {formatISOToBR(iso)}
+                  </button>
+                ))}
+              </div>
+            )}
           </Field>
 
           <Field label="Local (opcional)">
