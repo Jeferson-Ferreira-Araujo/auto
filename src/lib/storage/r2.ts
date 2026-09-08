@@ -36,7 +36,9 @@ export type MediaKind =
   | "logo"
   | "watermark"
   | "watermarked"
-  | "product";
+  | "product"
+  | "audio"
+  | "musiced";
 
 /** Gera uma chave segura e opaca, isolada por organização. O nome original nunca vira chave. */
 export function buildKey(organizationId: string, kind: MediaKind, ext: string): string {
@@ -97,6 +99,13 @@ export function extFromMime(mime: string): string {
     "image/heif": "heif",
     "video/mp4": "mp4",
     "video/quicktime": "mov",
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/aac": "aac",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/wav": "wav",
+    "audio/ogg": "ogg",
   };
   return map[mime] ?? "bin";
 }

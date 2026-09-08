@@ -10,6 +10,7 @@ import { confirmUploadSchema, updateMediaSchema } from "@/lib/validation/schemas
 import { ingestUpload } from "@/lib/media/ingest";
 import { deleteObject, getObjectBytes, buildKey, putObject } from "@/lib/storage/r2";
 import { processMedia } from "@/lib/media/process";
+import { VideoProcessingService } from "@/lib/video/service";
 
 export const confirmUpload = orgAction(confirmUploadSchema, async (input, { org }) => {
   // A chave precisa pertencer à pasta da organização.
@@ -24,6 +25,15 @@ export const confirmUpload = orgAction(confirmUploadSchema, async (input, { org 
     fileSize: input.fileSize,
     timezone: org.timezone,
   });
+
+  // Trilha automática: se a empresa definiu uma faixa padrão, todo vídeo novo já sai com música.
+  if (asset.type === "VIDEO" && org.autoMusicTrackId) {
+    await VideoProcessingService.requestMusic(org.id, asset.id, {
+      trackId: org.autoMusicTrackId,
+      mode: "MIX",
+    }).catch(() => {});
+  }
+
   revalidatePath("/biblioteca");
   revalidateOrg(org.id, "dashboard");
   return {
@@ -124,6 +134,8 @@ export const deleteMedia = orgAction(z.object({ id: z.string().min(1) }), async 
       asset.enhancedStorageKey,
       asset.enhancedThumbnailKey,
       asset.watermarkedStorageKey,
+      asset.musicedStorageKey,
+      asset.musicedThumbnailKey,
     ]
       .filter((k): k is string => Boolean(k))
       .map((k) => deleteObject(k)),

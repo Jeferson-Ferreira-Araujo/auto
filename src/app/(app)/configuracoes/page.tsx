@@ -8,6 +8,7 @@ import { SettingsForm } from "./SettingsForm";
 import { WhatsAppCard, type WhatsAppState } from "./WhatsAppCard";
 import { LogoUpload } from "./LogoUpload";
 import { WatermarkUpload } from "./WatermarkUpload";
+import { AutoMusicCard } from "./AutoMusicCard";
 import { InstagramPanel } from "./InstagramPanel";
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dono", ADMIN: "Administrador", MEMBER: "Membro" };
@@ -65,6 +66,8 @@ export default async function ConfiguracoesPage({
         <LogoUpload hasLogo={Boolean(org.logoStorageKey)} />
 
         <WatermarkUpload hasWatermark={Boolean(org.watermarkStorageKey)} />
+
+        <AutoMusicCard currentTrackId={org.autoMusicTrackId} />
 
         <WhatsAppCard state={whatsappState} />
 

@@ -35,6 +35,11 @@ export const VIDEO = {
   maxBytes: 100 * 1024 * 1024,
 } as const;
 
+export const AUDIO = {
+  acceptedUploadMimes: ["audio/mpeg", "audio/mp3", "audio/aac", "audio/mp4", "audio/x-m4a", "audio/wav", "audio/ogg"],
+  maxBytes: 12 * 1024 * 1024,
+} as const;
+
 export function imageAspectHint(): string {
   return "Use imagens entre 4:5 (retrato) e 1.91:1 (paisagem). Quadrado (1:1) também funciona.";
 }

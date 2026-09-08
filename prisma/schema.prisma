@@ -102,6 +102,12 @@ enum VideoJobKind {
   ENHANCE
   MERGE
   WATERMARK
+  ADD_MUSIC
+}
+
+enum MusicMode {
+  MIX // música alta + áudio original baixinho
+  MUSIC_ONLY // só a música
 }
 
 enum WatermarkSize {
@@ -166,6 +172,7 @@ model User {
   expirationsCreated ProductExpiration[]  @relation("ExpirationCreatedBy")
   deliveryOrders     DeliveryOrder[]      @relation("DeliveryOrderBy")
   couponsCreated     Coupon[]             @relation("CouponCreatedBy")
+  audioTracksCreated AudioTrack[]         @relation("AudioTrackCreatedBy")
 
   @@map("users")
 }
@@ -189,6 +196,8 @@ model Organization {
   whatsappOutreachEnabled Boolean       @default(true)
   /// Texto da promoção enviada no dia seguinte ao pedido. NULL = divulgação desligada.
   whatsappPromoMessage    String?
+  /// Trilha aplicada automaticamente a todo vídeo novo. NULL = desligado.
+  autoMusicTrackId        String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -210,6 +219,8 @@ model Organization {
   whatsappCustomers  WhatsAppCustomer[]
   deliveryOrders     DeliveryOrder[]
   coupons            Coupon[]
+  audioTracks        AudioTrack[]
+  autoMusicTrack     AudioTrack?          @relation("OrgAutoMusic", fields: [autoMusicTrackId], references: [id], onDelete: SetNull)
 
   @@map("organizations")
 }
@@ -324,11 +335,18 @@ model MediaAsset {
   watermarkOpacity      Int               @default(85)
   watermarkedStorageKey String?
 
+  // Trilha sonora — faixa embutida no vídeo antes de publicar (job ADD_MUSIC).
+  musicTrackId        String?
+  musicMode           MusicMode @default(MIX)
+  musicedStorageKey   String?
+  musicedThumbnailKey String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   category     MediaCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  musicTrack   AudioTrack?    @relation(fields: [musicTrackId], references: [id], onDelete: SetNull)
 
   scheduledPosts ScheduledPost[]
   videoJobs      VideoJob[]
@@ -337,6 +355,29 @@ model MediaAsset {
   @@index([organizationId, isActive])
   @@index([organizationId, categoryId])
   @@map("media_assets")
+}
+
+/// Faixa de áudio para embutir em vídeos. `organizationId` NULL = faixa curada
+/// (compartilhada, royalty-free). O arquivo fica no R2 (`storageKey`).
+model AudioTrack {
+  id             String   @id @default(cuid())
+  organizationId String? // NULL = curada/compartilhada
+  name           String
+  storageKey     String
+  mimeType       String
+  durationSec    Float?
+  active         Boolean  @default(true)
+  createdById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("AudioTrackCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  mediaAssets  MediaAsset[]
+  autoForOrgs  Organization[] @relation("OrgAutoMusic")
+
+  @@index([organizationId, active])
+  @@map("audio_tracks")
 }
 
 // ─────────────────────────── Automações ───────────────────────────

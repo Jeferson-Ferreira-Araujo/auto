@@ -91,6 +91,9 @@ export default async function BibliotecaPage({
     watermarkSize: a.watermarkSize,
     watermarkOpacity: a.watermarkOpacity,
     hasWatermarked: Boolean(a.watermarkedStorageKey),
+    musicTrackId: a.musicTrackId,
+    musicMode: a.musicMode,
+    hasMusiced: Boolean(a.musicedStorageKey),
   }));
 
   return (

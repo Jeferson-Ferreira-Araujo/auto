@@ -111,6 +111,21 @@ async function publishOne(id: string): Promise<OneOutcome> {
     if (wmOutcome) return wmOutcome;
   }
 
+  // Trilha sonora: o vídeo com a música precisa estar renderizado antes de publicar.
+  if (post.mediaAsset.type === "VIDEO" && post.mediaAsset.musicTrackId && !post.mediaAsset.musicedStorageKey) {
+    const state = await VideoProcessingService.ensureMusicJob(post.mediaAssetId);
+    if (state === "failed") {
+      return finalizeFailure(post, "Não foi possível aplicar a trilha sonora ao vídeo.", l, false);
+    }
+    await prisma.scheduledPost.update({
+      where: { id: post.id },
+      data: { status: "SCHEDULED", lockedAt: null, nextAttemptAt: new Date(Date.now() + 90_000) },
+    });
+    await logAttempt(post, "CONTAINER", "SUCCESS", "aguardando o vídeo com trilha sonora");
+    l.info("trilha sonora ainda processando; adiado");
+    return "deferred";
+  }
+
   try {
     const token = await getValidAccessToken(post.instagramAccount);
     const igUserId = post.instagramAccount.igUserId;

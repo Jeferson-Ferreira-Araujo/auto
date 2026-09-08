@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireOrgContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppError, notFound, toErrorResponse, validation } from "@/lib/errors";
-import { presignSchema } from "@/lib/validation/schemas";
+import { audioPresignSchema, presignSchema } from "@/lib/validation/schemas";
 import { buildKey, extFromMime, presignGet, presignPut } from "@/lib/storage/r2";
 import { IMAGE } from "@/lib/media/constraints";
 
@@ -66,7 +66,22 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { org } = await requireOrgContext();
-    const input = presignSchema.parse(await req.json());
+    const raw = await req.json();
+
+    // Upload de trilha sonora (áudio) — chave própria, sem contar no limite de mídias.
+    if (raw?.kind === "audio") {
+      const a = audioPresignSchema.parse(raw);
+      const audioKey = buildKey(org.id, "audio", extFromMime(a.mimeType));
+      const audioUrl = await presignPut(audioKey, a.mimeType, 600);
+      return NextResponse.json({
+        uploadUrl: audioUrl,
+        storageKey: audioKey,
+        method: "PUT",
+        headers: { "Content-Type": a.mimeType },
+      });
+    }
+
+    const input = presignSchema.parse(raw);
 
     const count = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
     if (count >= org.mediaLimit) {

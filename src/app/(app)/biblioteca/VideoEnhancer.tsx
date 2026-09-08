@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { mediaUrl } from "@/lib/display";
 import { PRESETS, PRESET_NAMES, type PresetName } from "@/lib/video/presets";
 import type { MediaItem } from "./LibraryClient";
+import { MusicPicker } from "./MusicPicker";
 import {
   getVideoJob,
   requestVideoEnhancement,
@@ -243,8 +244,7 @@ export function VideoEnhancer({
             <span>
               Publicar sem áudio (Reel mudo)
               <span className="block text-xs text-[var(--color-muted)]">
-                Use quando o som gravado está ruim. A API não permite adicionar música do Instagram
-                depois — o Reel fica sem som.
+                Use quando o som gravado está ruim. Para pôr música, use a trilha sonora abaixo.
               </span>
             </span>
           </label>
@@ -253,6 +253,16 @@ export function VideoEnhancer({
           </Button>
         </div>
       )}
+
+      <div className="mt-3">
+        <MusicPicker
+          mediaAssetId={item.id}
+          currentTrackId={item.musicTrackId}
+          currentMode={item.musicMode}
+          hasMusiced={item.hasMusiced}
+          onChanged={onChanged}
+        />
+      </div>
     </div>
   );
 }

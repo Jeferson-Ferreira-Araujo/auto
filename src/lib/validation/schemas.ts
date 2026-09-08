@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IMAGE, VIDEO } from "@/lib/media/constraints";
+import { AUDIO, IMAGE, VIDEO } from "@/lib/media/constraints";
 
 export const createOrganizationSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da empresa").max(80),
@@ -32,6 +32,25 @@ export const presignSchema = z.object({
     .int()
     .positive()
     .max(VIDEO.maxBytes, "Arquivo acima do limite"),
+});
+
+export const audioPresignSchema = z.object({
+  kind: z.literal("audio"),
+  fileName: z.string().min(1).max(200),
+  mimeType: z.enum(AUDIO.acceptedUploadMimes as unknown as [string, ...string[]]),
+  fileSize: z.number().int().positive().max(AUDIO.maxBytes, "Áudio acima de 12 MB"),
+});
+
+export const confirmAudioTrackSchema = z.object({
+  storageKey: z.string().min(1),
+  name: z.string().trim().min(1, "Dê um nome à faixa").max(80),
+  mimeType: z.enum(AUDIO.acceptedUploadMimes as unknown as [string, ...string[]]),
+});
+
+export const setVideoMusicSchema = z.object({
+  mediaAssetId: z.string().min(1),
+  trackId: z.string().min(1).nullable(),
+  mode: z.enum(["MIX", "MUSIC_ONLY"]).default("MIX"),
 });
 
 export const confirmUploadSchema = z.object({

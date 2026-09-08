@@ -19,6 +19,9 @@ export function publishKeys(
     | "thumbnailKey"
     | "watermarkEnabled"
     | "watermarkedStorageKey"
+    | "musicTrackId"
+    | "musicedStorageKey"
+    | "musicedThumbnailKey"
   >,
 ): { mediaKey: string; thumbKey: string | null } {
   const useEnhanced =
@@ -27,6 +30,11 @@ export function publishKeys(
   const thumbKey = useEnhanced
     ? media.enhancedThumbnailKey ?? media.thumbnailKey ?? null
     : media.thumbnailKey ?? media.processedStorageKey ?? null;
+
+  // Trilha sonora é a última camada (áudio embutido no vídeo). Tem prioridade.
+  if (media.type === "VIDEO" && media.musicTrackId && media.musicedStorageKey) {
+    return { mediaKey: media.musicedStorageKey, thumbKey: media.musicedThumbnailKey ?? thumbKey };
+  }
 
   // A versão com marca já foi construída sobre a fonte correta (original ou melhorada).
   if (media.watermarkEnabled && media.watermarkedStorageKey) {

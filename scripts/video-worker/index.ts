@@ -18,6 +18,7 @@ import { ulid } from "ulid";
 import { PRESETS, type PresetName, type VideoProbe } from "../../src/lib/video/presets";
 import { buildFfmpegArgs, buildThumbArgs } from "../../src/lib/video/filtergraph";
 import { buildMergeArgs } from "../../src/lib/video/merge";
+import { buildMusicArgs } from "../../src/lib/video/music-filter";
 import {
   buildWatermarkFilter,
   type WatermarkPosition,
@@ -71,7 +72,7 @@ type Job = {
   id: string;
   organizationId: string;
   mediaAssetId: string;
-  kind: "ENHANCE" | "MERGE" | "WATERMARK";
+  kind: "ENHANCE" | "MERGE" | "WATERMARK" | "ADD_MUSIC";
   preset: PresetName | null;
   inputStorageKeys: string[];
   titleText: string | null;
@@ -172,6 +173,83 @@ async function processMerge(db: Client, job: Job) {
   }
 }
 
+async function processMusic(db: Client, job: Job) {
+  const work = await mkdtemp(join(tmpdir(), "mus-"));
+  const inPath = join(work, "in.mp4");
+  const audioPath = join(work, "music.bin");
+  const outPath = join(work, "out.mp4");
+  const thumbPath = join(work, "thumb.jpg");
+  try {
+    const row = (
+      await db.query(
+        `SELECT
+           COALESCE(
+             CASE WHEN ma."watermarkEnabled" THEN ma."watermarkedStorageKey" END,
+             CASE WHEN ma."publishVariant" = 'ENHANCED' THEN ma."enhancedStorageKey" END,
+             ma."processedStorageKey",
+             ma."storageKey"
+           ) AS "sourceKey",
+           ma."musicMode",
+           at."storageKey" AS "audioKey"
+         FROM media_assets ma
+         JOIN audio_tracks at ON at.id = ma."musicTrackId"
+         WHERE ma.id = $1`,
+        [job.mediaAssetId],
+      )
+    ).rows[0];
+    if (!row?.sourceKey) throw new Error("vídeo-fonte não encontrado");
+    if (!row.audioKey) throw new Error("faixa de áudio não definida");
+
+    await db.query(`UPDATE video_jobs SET progress = 15, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    await download(row.sourceKey, inPath);
+    await download(row.audioKey, audioPath);
+
+    const probe = await ffprobe(inPath);
+    if (probe.width === 0 || probe.height === 0) throw new Error("Não foi possível ler o vídeo.");
+
+    const args = buildMusicArgs({
+      videoPath: inPath,
+      audioPath,
+      outputPath: outPath,
+      mode: row.musicMode === "MUSIC_ONLY" ? "MUSIC_ONLY" : "MIX",
+      videoHasAudio: probe.hasAudio,
+    });
+
+    await db.query(`UPDATE video_jobs SET progress = 45, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    try {
+      await exec("ffmpeg", args, { maxBuffer: 1024 * 1024 * 32 });
+    } catch (e) {
+      const se = (e as { stderr?: string }).stderr ?? "";
+      throw new Error(`ffmpeg: ${se.split("\n").slice(-6).join(" | ").slice(0, 600)}`);
+    }
+
+    await db.query(`UPDATE video_jobs SET progress = 85, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    await exec("ffmpeg", buildThumbArgs(outPath, thumbPath));
+
+    const outProbe = await ffprobe(outPath);
+    const resultKey = buildKey(job.organizationId, "musiced", "mp4");
+    const thumbKey = buildKey(job.organizationId, "musiced", "jpg");
+    await upload(resultKey, outPath, "video/mp4");
+    await upload(thumbKey, thumbPath, "image/jpeg");
+
+    await db.query(
+      `UPDATE media_assets SET "musicedStorageKey" = $2, "musicedThumbnailKey" = $3, "updatedAt" = now() WHERE id = $1`,
+      [job.mediaAssetId, resultKey, thumbKey],
+    );
+    await db.query(
+      `UPDATE video_jobs SET status='COMPLETED', progress=100, "completedAt"=now(), "updatedAt"=now(),
+         "resultStorageKey"=$2, "resultThumbnailKey"=$3, "resultDurationSec"=$4, "resultWidth"=$5, "resultHeight"=$6
+       WHERE id=$1`,
+      [job.id, resultKey, thumbKey, outProbe.durationSec, outProbe.width, outProbe.height],
+    );
+    console.log(`✓ trilha sonora ${job.id} concluída`);
+  } catch (err) {
+    await failJob(db, job, err instanceof Error ? err.message : String(err));
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
 async function processWatermark(db: Client, job: Job) {
   const work = await mkdtemp(join(tmpdir(), "wm-"));
   const inPath = join(work, "in.mp4");
@@ -261,6 +339,7 @@ async function processWatermark(db: Client, job: Job) {
 async function processJob(db: Client, job: Job) {
   if (job.kind === "MERGE") return processMerge(db, job);
   if (job.kind === "WATERMARK") return processWatermark(db, job);
+  if (job.kind === "ADD_MUSIC") return processMusic(db, job);
   const work = await mkdtemp(join(tmpdir(), "vid-"));
   const inPath = join(work, "in.mp4");
   const outPath = join(work, "out.mp4");
