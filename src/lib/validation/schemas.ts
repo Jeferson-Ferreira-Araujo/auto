@@ -47,12 +47,6 @@ export const confirmAudioTrackSchema = z.object({
   mimeType: z.enum(AUDIO.acceptedUploadMimes as unknown as [string, ...string[]]),
 });
 
-export const setVideoMusicSchema = z.object({
-  mediaAssetId: z.string().min(1),
-  trackId: z.string().min(1).nullable(),
-  mode: z.enum(["MIX", "MUSIC_ONLY"]).default("MIX"),
-});
-
 export const confirmUploadSchema = z.object({
   storageKey: z.string().min(1),
   originalName: z.string().min(1).max(200),
@@ -94,6 +88,9 @@ export const manualScheduleSchema = z.object({
   scheduledAt: z.coerce.date().refine((d) => d.getTime() > Date.now() + 30_000, "Escolha um horário no futuro"),
   format: z.enum(["AUTO", "STORY", "CAROUSEL"]).optional(),
   carouselExtraIds: z.array(z.string().min(1)).max(9).optional(),
+  /** Trilha sonora (só vídeo). null/omitido = só o áudio original do vídeo. */
+  musicTrackId: z.string().min(1).nullable().optional(),
+  musicMode: z.enum(["MIX", "MUSIC_ONLY"]).optional(),
 });
 
 export const updateScheduledPostSchema = z.object({

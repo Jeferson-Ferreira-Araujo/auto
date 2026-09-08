@@ -20,6 +20,8 @@ export const createManualPost = orgAction(manualScheduleSchema, async (input, { 
     source: "MANUAL",
     format: input.format,
     carouselExtraIds: input.carouselExtraIds,
+    musicTrackId: input.musicTrackId ?? null,
+    musicMode: input.musicMode,
   });
   revalidatePath("/calendario");
   revalidateOrg(org.id, "dashboard");

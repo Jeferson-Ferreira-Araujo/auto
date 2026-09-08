@@ -29,6 +29,7 @@ export type CalPost = {
   instagramMediaId: string | null;
 };
 export type PickMedia = { id: string; name: string; type: MediaType; caption: string | null };
+export type AudioTrackOption = { id: string; name: string; durationSec: number | null; curated: boolean };
 type Account = { id: string; username: string };
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -39,6 +40,8 @@ export function CalendarClient({
   posts,
   accounts,
   media,
+  audioTracks,
+  suggestedTrackId,
   timezone,
 }: {
   year: number;
@@ -46,6 +49,8 @@ export function CalendarClient({
   posts: CalPost[];
   accounts: Account[];
   media: PickMedia[];
+  audioTracks: AudioTrackOption[];
+  suggestedTrackId: string | null;
   timezone: string;
 }) {
   const router = useRouter();
@@ -231,6 +236,8 @@ export function CalendarClient({
           date={creating}
           accounts={accounts}
           media={media}
+          audioTracks={audioTracks}
+          suggestedTrackId={suggestedTrackId}
           onClose={() => setCreating(null)}
           onCreated={() => {
             setCreating(null);
@@ -388,12 +395,16 @@ function NewPost({
   date,
   accounts,
   media,
+  audioTracks,
+  suggestedTrackId,
   onClose,
   onCreated,
 }: {
   date: string;
   accounts: Account[];
   media: PickMedia[];
+  audioTracks: AudioTrackOption[];
+  suggestedTrackId: string | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -405,6 +416,9 @@ function NewPost({
   const [when, setWhen] = useState(`${date}T09:00`);
   const [format, setFormat] = useState<"AUTO" | "STORY" | "CAROUSEL">("AUTO");
   const [extraIds, setExtraIds] = useState<string[]>([]);
+  const suggested = suggestedTrackId && audioTracks.some((t) => t.id === suggestedTrackId) ? suggestedTrackId : "";
+  const [musicTrackId, setMusicTrackId] = useState<string>(suggested);
+  const [musicMode, setMusicMode] = useState<"MIX" | "MUSIC_ONLY">("MIX");
 
   function onMediaChange(id: string) {
     setMediaId(id);
@@ -413,6 +427,8 @@ function NewPost({
     setCaption(m?.caption ?? "");
   }
 
+  const selectedMedia = media.find((m) => m.id === mediaId);
+  const showMusic = selectedMedia?.type === "VIDEO" && format !== "CAROUSEL" && audioTracks.length > 0;
   const carouselTotal = 1 + extraIds.length;
 
   function submit() {
@@ -427,6 +443,8 @@ function NewPost({
         scheduledAt: new Date(when),
         format,
         carouselExtraIds: format === "CAROUSEL" ? extraIds : undefined,
+        musicTrackId: showMusic && musicTrackId ? musicTrackId : null,
+        musicMode: showMusic && musicTrackId ? musicMode : undefined,
       });
       if (!res.ok) return toast.push(res.error.message, "error");
       toast.push("Publicação agendada", "success");
@@ -501,6 +519,56 @@ function NewPost({
             <img src={mediaUrl(mediaId, "preview")} alt="" className="max-h-52 w-full object-contain" />
           )}
         </div>
+      )}
+      {showMusic && (
+        <Field
+          label="Trilha sonora"
+          hint="Só para vídeo. A música é embutida no vídeo antes de publicar."
+        >
+          <Select value={musicTrackId} onChange={(e) => setMusicTrackId(e.target.value)}>
+            <option value="">Nenhuma — só o áudio original do vídeo</option>
+            {audioTracks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+                {t.curated ? " (curada)" : ""}
+              </option>
+            ))}
+          </Select>
+          {musicTrackId && (
+            <div className="mt-2 space-y-1 text-sm">
+              <label className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="musicMode"
+                  checked={musicMode === "MIX"}
+                  onChange={() => setMusicMode("MIX")}
+                  className="mt-0.5"
+                />
+                <span>
+                  Música de fundo bem baixinha
+                  <span className="block text-xs text-[var(--color-muted)]">
+                    O áudio original do vídeo continua e a música fica só por baixo.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="musicMode"
+                  checked={musicMode === "MUSIC_ONLY"}
+                  onChange={() => setMusicMode("MUSIC_ONLY")}
+                  className="mt-0.5"
+                />
+                <span>
+                  Só a música
+                  <span className="block text-xs text-[var(--color-muted)]">
+                    Troca o áudio do vídeo pela música escolhida.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+        </Field>
       )}
       <Field label="Data e hora">
         <input

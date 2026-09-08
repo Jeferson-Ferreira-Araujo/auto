@@ -112,8 +112,8 @@ async function publishOne(id: string): Promise<OneOutcome> {
   }
 
   // Trilha sonora: o vídeo com a música precisa estar renderizado antes de publicar.
-  if (post.mediaAsset.type === "VIDEO" && post.mediaAsset.musicTrackId && !post.mediaAsset.musicedStorageKey) {
-    const state = await VideoProcessingService.ensureMusicJob(post.mediaAssetId);
+  if (post.mediaAsset.type === "VIDEO" && post.musicTrackId && !post.musicedStorageKey) {
+    const state = await VideoProcessingService.ensurePostMusicJob(post.id);
     if (state === "failed") {
       return finalizeFailure(post, "Não foi possível aplicar a trilha sonora ao vídeo.", l, false);
     }
@@ -263,11 +263,14 @@ async function buildContainer(
   igUserId: string,
   caption: string | undefined,
 ): Promise<string> {
-  const urlFor = async (asset: PostWithRefs["mediaAsset"]) =>
-    presignGet(publishKeys(asset).mediaKey, 7200);
+  // A capa (item principal): com trilha sonora usa a versão renderizada; senão a normal.
+  const coverKey =
+    post.mediaAsset.type === "VIDEO" && post.musicTrackId && post.musicedStorageKey
+      ? post.musicedStorageKey
+      : publishKeys(post.mediaAsset).mediaKey;
 
   if (post.postFormat === "STORY") {
-    const u = await urlFor(post.mediaAsset);
+    const u = await presignGet(coverKey, 7200);
     return post.mediaAsset.type === "VIDEO"
       ? InstagramService.createStoryContainer({ accessToken: token, igUserId, videoUrl: u })
       : InstagramService.createStoryContainer({ accessToken: token, igUserId, imageUrl: u });
@@ -294,7 +297,7 @@ async function buildContainer(
   }
 
   // AUTO
-  const u = await urlFor(post.mediaAsset);
+  const u = await presignGet(coverKey, 7200);
   return post.mediaAsset.type === "IMAGE"
     ? InstagramService.createImageContainer({ accessToken: token, igUserId, imageUrl: u, caption })
     : InstagramService.createReelContainer({ accessToken: token, igUserId, videoUrl: u, caption });

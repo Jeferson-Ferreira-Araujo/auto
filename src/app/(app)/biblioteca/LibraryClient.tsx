@@ -40,9 +40,6 @@ export type MediaItem = {
   watermarkSize: "SMALL" | "MEDIUM" | "LARGE";
   watermarkOpacity: number;
   hasWatermarked: boolean;
-  musicTrackId: string | null;
-  musicMode: "MIX" | "MUSIC_ONLY";
-  hasMusiced: boolean;
 };
 
 type Category = { id: string; name: string };

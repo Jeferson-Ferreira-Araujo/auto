@@ -1,6 +1,7 @@
-import type { PostFormat, PostSource, PostStatus } from "@prisma/client";
+import type { MusicMode, PostFormat, PostSource, PostStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { AppError, conflict, notFound, validation } from "@/lib/errors";
+import { VideoProcessingService } from "@/lib/video/service";
 
 /** Status em que uma publicação ainda pode ser editada/remarcada/cancelada. */
 export const EDITABLE_POST_STATUSES = ["DRAFT", "SCHEDULED", "FAILED"] as const;
@@ -15,6 +16,9 @@ export type CreateScheduledPostInput = {
   format?: PostFormat;
   /** Itens 2..10 do carrossel (o `mediaAssetId` é o item 1). */
   carouselExtraIds?: string[];
+  /** Trilha sonora (só vídeo). NULL = áudio original. */
+  musicTrackId?: string | null;
+  musicMode?: MusicMode;
 };
 
 /**
@@ -49,6 +53,17 @@ export async function createScheduledPost(organizationId: string, input: CreateS
   const format: PostFormat = input.format ?? "AUTO";
   let carouselExtraIds: string[] = [];
 
+  // Trilha sonora — só para vídeo, formato AUTO ou STORY.
+  let musicTrackId: string | null = null;
+  if (input.musicTrackId && media.type === "VIDEO" && format !== "CAROUSEL") {
+    const track = await prisma.audioTrack.findFirst({
+      where: { id: input.musicTrackId, active: true, OR: [{ organizationId: null }, { organizationId }] },
+      select: { id: true },
+    });
+    if (!track) throw validation("Faixa de áudio inválida.");
+    musicTrackId = track.id;
+  }
+
   if (format === "CAROUSEL") {
     const extras = [...new Set(input.carouselExtraIds ?? [])].filter((id) => id !== media.id);
     const total = 1 + extras.length;
@@ -61,7 +76,7 @@ export async function createScheduledPost(organizationId: string, input: CreateS
     carouselExtraIds = extras;
   }
 
-  return prisma.scheduledPost.create({
+  const post = await prisma.scheduledPost.create({
     data: {
       organizationId,
       instagramAccountId: account.id,
@@ -70,11 +85,18 @@ export async function createScheduledPost(organizationId: string, input: CreateS
       source: input.source,
       postFormat: format,
       carouselExtraIds,
+      musicTrackId,
+      musicMode: input.musicMode ?? "MIX",
       caption: input.caption ?? media.caption ?? null,
       scheduledAt: input.scheduledAt,
       status: "SCHEDULED",
     },
   });
+
+  if (musicTrackId) {
+    await VideoProcessingService.requestPostMusic(organizationId, post.id).catch(() => {});
+  }
+  return post;
 }
 
 /** Remarca uma publicação editável para um novo horário (futuro). Escopado por organização. */

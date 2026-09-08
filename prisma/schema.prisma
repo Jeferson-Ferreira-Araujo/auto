@@ -341,18 +341,11 @@ model MediaAsset {
   watermarkOpacity      Int               @default(85)
   watermarkedStorageKey String?
 
-  // Trilha sonora — faixa embutida no vídeo antes de publicar (job ADD_MUSIC).
-  musicTrackId        String?
-  musicMode           MusicMode @default(MIX)
-  musicedStorageKey   String?
-  musicedThumbnailKey String?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   category     MediaCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  musicTrack   AudioTrack?    @relation(fields: [musicTrackId], references: [id], onDelete: SetNull)
 
   scheduledPosts ScheduledPost[]
   videoJobs      VideoJob[]
@@ -377,10 +370,10 @@ model AudioTrack {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User?         @relation("AudioTrackCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  mediaAssets  MediaAsset[]
-  autoForOrgs  Organization[] @relation("OrgAutoMusic")
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User?           @relation("AudioTrackCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  scheduledPosts ScheduledPost[]
+  autoForOrgs    Organization[]  @relation("OrgAutoMusic")
 
   @@index([organizationId, active])
   @@map("audio_tracks")
@@ -426,6 +419,12 @@ model ScheduledPost {
   postFormat           PostFormat @default(AUTO)
   /// Itens 2..10 do carrossel (o `mediaAssetId` é a capa / item 1). Só usado quando postFormat = CAROUSEL.
   carouselExtraIds     String[]   @default([])
+  /// Trilha sonora escolhida na hora de agendar (só para vídeo). Renderizada num
+  /// job ADD_MUSIC → `musicedStorageKey`. NULL = publica com o áudio original.
+  musicTrackId         String?
+  musicMode            MusicMode  @default(MIX)
+  musicedStorageKey    String?
+  musicedThumbnailKey  String?
   caption              String?    @db.Text
   scheduledAt          DateTime
   status               PostStatus @default(SCHEDULED)
@@ -450,9 +449,11 @@ model ScheduledPost {
   instagramAccount InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
   mediaAsset       MediaAsset       @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
   automation       Automation?      @relation(fields: [automationId], references: [id], onDelete: SetNull)
+  musicTrack       AudioTrack?      @relation(fields: [musicTrackId], references: [id], onDelete: SetNull)
 
   publicationLogs PublicationLog[]
   mediaInsight    MediaInsight?
+  videoJobs       VideoJob[]
 
   @@unique([automationId, occurrenceKey])
   @@index([status, scheduledAt])
@@ -633,6 +634,8 @@ model VideoJob {
   id                 String         @id @default(cuid())
   organizationId     String
   mediaAssetId       String
+  /// Só para jobs ADD_MUSIC: a trilha é escolhida por publicação, não pela mídia.
+  scheduledPostId    String?
   kind               VideoJobKind   @default(ENHANCE)
   preset             VideoPreset?
   inputStorageKeys   String[]       @default([])
@@ -656,11 +659,13 @@ model VideoJob {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  mediaAsset   MediaAsset   @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mediaAsset    MediaAsset     @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  scheduledPost ScheduledPost? @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
   @@index([mediaAssetId])
+  @@index([scheduledPostId])
   @@map("video_jobs")
 }
 

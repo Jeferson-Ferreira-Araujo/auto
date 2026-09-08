@@ -72,6 +72,7 @@ type Job = {
   id: string;
   organizationId: string;
   mediaAssetId: string;
+  scheduledPostId: string | null;
   kind: "ENHANCE" | "MERGE" | "WATERMARK" | "ADD_MUSIC";
   preset: PresetName | null;
   inputStorageKeys: string[];
@@ -180,6 +181,7 @@ async function processMusic(db: Client, job: Job) {
   const outPath = join(work, "out.mp4");
   const thumbPath = join(work, "thumb.jpg");
   try {
+    if (!job.scheduledPostId) throw new Error("job ADD_MUSIC sem scheduledPostId");
     const row = (
       await db.query(
         `SELECT
@@ -189,12 +191,13 @@ async function processMusic(db: Client, job: Job) {
              ma."processedStorageKey",
              ma."storageKey"
            ) AS "sourceKey",
-           ma."musicMode",
+           sp."musicMode",
            at."storageKey" AS "audioKey"
-         FROM media_assets ma
-         JOIN audio_tracks at ON at.id = ma."musicTrackId"
-         WHERE ma.id = $1`,
-        [job.mediaAssetId],
+         FROM scheduled_posts sp
+         JOIN media_assets ma ON ma.id = sp."mediaAssetId"
+         JOIN audio_tracks at ON at.id = sp."musicTrackId"
+         WHERE sp.id = $1`,
+        [job.scheduledPostId],
       )
     ).rows[0];
     if (!row?.sourceKey) throw new Error("vídeo-fonte não encontrado");
@@ -233,8 +236,8 @@ async function processMusic(db: Client, job: Job) {
     await upload(thumbKey, thumbPath, "image/jpeg");
 
     await db.query(
-      `UPDATE media_assets SET "musicedStorageKey" = $2, "musicedThumbnailKey" = $3, "updatedAt" = now() WHERE id = $1`,
-      [job.mediaAssetId, resultKey, thumbKey],
+      `UPDATE scheduled_posts SET "musicedStorageKey" = $2, "musicedThumbnailKey" = $3, "updatedAt" = now() WHERE id = $1`,
+      [job.scheduledPostId, resultKey, thumbKey],
     );
     await db.query(
       `UPDATE video_jobs SET status='COMPLETED', progress=100, "completedAt"=now(), "updatedAt"=now(),
@@ -436,7 +439,7 @@ async function main() {
            SELECT id FROM video_jobs WHERE status='PENDING'
            ORDER BY "createdAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
          )
-         RETURNING id, "organizationId", "mediaAssetId", kind, preset, "inputStorageKeys",
+         RETURNING id, "organizationId", "mediaAssetId", "scheduledPostId", kind, preset, "inputStorageKeys",
                    "titleText", "includeLogo", "stripAudio"`,
       );
       if (claimed.rows.length === 0) break;

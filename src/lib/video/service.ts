@@ -175,76 +175,59 @@ export const VideoProcessingService = {
     return { jobId: job.id, status: job.status };
   },
 
-  /** Liga/atualiza a trilha sonora de um vídeo e (re)cria o job ADD_MUSIC. */
-  async requestMusic(
-    organizationId: string,
-    mediaAssetId: string,
-    input: { trackId: string; mode: "MIX" | "MUSIC_ONLY" },
-  ) {
-    const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
-    if (!media) throw notFound("Vídeo não encontrado");
-    if (media.type !== "VIDEO") throw validation("Trilha sonora é só para vídeos.");
-
-    const track = await prisma.audioTrack.findFirst({
-      where: { id: input.trackId, active: true, OR: [{ organizationId: null }, { organizationId }] },
-      select: { id: true },
+  /** Cria/recria o job ADD_MUSIC de uma PUBLICAÇÃO (trilha escolhida ao agendar). */
+  async requestPostMusic(organizationId: string, scheduledPostId: string) {
+    const post = await prisma.scheduledPost.findFirst({
+      where: { id: scheduledPostId, organizationId },
+      include: { mediaAsset: { select: { type: true } } },
     });
-    if (!track) throw validation("Faixa de áudio inválida.");
+    if (!post) throw notFound("Publicação não encontrada");
+    if (!post.musicTrackId) return { skipped: true as const };
+    if (post.mediaAsset.type !== "VIDEO") throw validation("Trilha sonora é só para vídeo.");
 
     await prisma.videoJob.updateMany({
-      where: { mediaAssetId, kind: "ADD_MUSIC", status: { in: ["PENDING", "PROCESSING"] } },
+      where: { scheduledPostId, kind: "ADD_MUSIC", status: { in: ["PENDING", "PROCESSING"] } },
       data: { status: "FAILED", errorMessage: "Substituído por um novo pedido." },
     });
-    if (media.musicedStorageKey) await deleteObject(media.musicedStorageKey).catch(() => {});
-
-    await prisma.mediaAsset.update({
-      where: { id: mediaAssetId },
-      data: { musicTrackId: input.trackId, musicMode: input.mode, musicedStorageKey: null, musicedThumbnailKey: null },
+    if (post.musicedStorageKey) await deleteObject(post.musicedStorageKey).catch(() => {});
+    await prisma.scheduledPost.update({
+      where: { id: scheduledPostId },
+      data: { musicedStorageKey: null, musicedThumbnailKey: null },
     });
 
     const job = await prisma.videoJob.create({
-      data: { organizationId, mediaAssetId, kind: "ADD_MUSIC", status: "PENDING" },
+      data: { organizationId, mediaAssetId: post.mediaAssetId, scheduledPostId, kind: "ADD_MUSIC", status: "PENDING" },
     });
     const dispatched = await dispatchWorker();
     if (dispatched) {
       await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
     }
-    log.info({ jobId: job.id, mediaAssetId, dispatched }, "job de trilha sonora criado");
+    log.info({ jobId: job.id, scheduledPostId, dispatched }, "job de trilha sonora criado");
     return { jobId: job.id, status: job.status };
   },
 
-  /** Remove a trilha sonora de um vídeo. */
-  async disableMusic(organizationId: string, mediaAssetId: string) {
-    const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
-    if (!media) throw notFound("Vídeo não encontrado");
-    await prisma.videoJob.updateMany({
-      where: { mediaAssetId, kind: "ADD_MUSIC", status: { in: ["PENDING", "PROCESSING"] } },
-      data: { status: "FAILED", errorMessage: "Trilha sonora removida." },
-    });
-    if (media.musicedStorageKey) await deleteObject(media.musicedStorageKey).catch(() => {});
-    await prisma.mediaAsset.update({
-      where: { id: mediaAssetId },
-      data: { musicTrackId: null, musicedStorageKey: null, musicedThumbnailKey: null },
-    });
-    return { disabled: true };
-  },
-
-  /** Garante um job ADD_MUSIC pendente (usado pela publicação ao adiar). */
-  async ensureMusicJob(mediaAssetId: string): Promise<"pending" | "failed"> {
+  /** Garante um job ADD_MUSIC pendente para a publicação (usado ao adiar). */
+  async ensurePostMusicJob(scheduledPostId: string): Promise<"pending" | "failed"> {
     const open = await prisma.videoJob.findFirst({
-      where: { mediaAssetId, kind: "ADD_MUSIC", status: { in: ["PENDING", "PROCESSING"] } },
+      where: { scheduledPostId, kind: "ADD_MUSIC", status: { in: ["PENDING", "PROCESSING"] } },
       orderBy: { createdAt: "desc" },
     });
     if (open) return "pending";
     const lastFailed = await prisma.videoJob.findFirst({
-      where: { mediaAssetId, kind: "ADD_MUSIC", status: "FAILED" },
+      where: { scheduledPostId, kind: "ADD_MUSIC", status: "FAILED" },
       orderBy: { createdAt: "desc" },
     });
     if (lastFailed && (lastFailed.attempts ?? 0) >= 3) return "failed";
-    const media = await prisma.mediaAsset.findUnique({ where: { id: mediaAssetId } });
-    if (!media || !media.musicTrackId) return "failed";
+    const post = await prisma.scheduledPost.findUnique({ where: { id: scheduledPostId } });
+    if (!post || !post.musicTrackId) return "failed";
     const job = await prisma.videoJob.create({
-      data: { organizationId: media.organizationId, mediaAssetId, kind: "ADD_MUSIC", status: "PENDING" },
+      data: {
+        organizationId: post.organizationId,
+        mediaAssetId: post.mediaAssetId,
+        scheduledPostId,
+        kind: "ADD_MUSIC",
+        status: "PENDING",
+      },
     });
     const dispatched = await dispatchWorker();
     if (dispatched) {

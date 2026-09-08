@@ -6,15 +6,14 @@ import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
 import { notFound, validation } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage/r2";
-import { confirmAudioTrackSchema, setVideoMusicSchema } from "@/lib/validation/schemas";
-import { VideoProcessingService } from "@/lib/video/service";
+import { confirmAudioTrackSchema } from "@/lib/validation/schemas";
 import { listAudioTracks } from "@/lib/audio/tracks";
 
 export const getAudioTracks = orgAction(z.object({}), async (_input, { org }) => {
   return { tracks: await listAudioTracks(org.id) };
 });
 
-/** Faixa aplicada automaticamente a todo vídeo novo (null = desligado). */
+/** Faixa sugerida (pré-selecionada) ao agendar uma publicação (null = nenhuma). */
 export const setAutoMusic = orgAction(
   z.object({ trackId: z.string().min(1).nullable() }),
   async (input, { org }) => {
@@ -52,23 +51,13 @@ export const deleteAudioTrack = orgAction(z.object({ id: z.string().min(1) }), a
   const track = await prisma.audioTrack.findFirst({ where: { id: input.id, organizationId: org.id } });
   if (!track) throw notFound("Faixa não encontrada (curadas não podem ser apagadas).");
 
-  const inUse = await prisma.mediaAsset.count({ where: { musicTrackId: track.id } });
-  if (inUse > 0) throw validation("Há vídeos usando esta faixa. Troque a trilha deles antes.");
+  const inUse = await prisma.scheduledPost.count({
+    where: { musicTrackId: track.id, status: { in: ["SCHEDULED", "PROCESSING", "DRAFT"] } },
+  });
+  if (inUse > 0) throw validation("Há publicações agendadas usando esta faixa.");
 
   await prisma.audioTrack.delete({ where: { id: track.id } });
   await deleteObject(track.storageKey).catch(() => {});
   revalidatePath("/biblioteca");
   return { id: track.id };
-});
-
-export const setVideoMusic = orgAction(setVideoMusicSchema, async (input, { org }) => {
-  const res =
-    input.trackId === null
-      ? await VideoProcessingService.disableMusic(org.id, input.mediaAssetId)
-      : await VideoProcessingService.requestMusic(org.id, input.mediaAssetId, {
-          trackId: input.trackId,
-          mode: input.mode,
-        });
-  revalidatePath("/biblioteca");
-  return res;
 });
