@@ -48,10 +48,12 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
+          set +e
           for i in 1 2 3 4; do
-            npx tsx scripts/cron-worker/index.ts "publish,process-events" || true
-            [ "$i" -lt 4 ] && sleep 90
+            npx tsx scripts/cron-worker/index.ts "publish,process-events"
+            if [ "$i" -lt 4 ]; then sleep 90; fi
           done
+          exit 0
       - name: Re-agenda o próximo ciclo
         if: always()
         env:
