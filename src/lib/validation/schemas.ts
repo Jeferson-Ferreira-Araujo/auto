@@ -92,6 +92,8 @@ export const manualScheduleSchema = z.object({
   mediaAssetId: z.string().min(1),
   caption: z.string().max(2200).nullable().optional(),
   scheduledAt: z.coerce.date().refine((d) => d.getTime() > Date.now() + 30_000, "Escolha um horário no futuro"),
+  format: z.enum(["AUTO", "STORY", "CAROUSEL"]).optional(),
+  carouselExtraIds: z.array(z.string().min(1)).max(9).optional(),
 });
 
 export const updateScheduledPostSchema = z.object({

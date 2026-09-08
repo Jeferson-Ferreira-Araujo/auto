@@ -63,6 +63,7 @@ export default async function CalendarioPage({
     mediaId: p.mediaAsset.id,
     mediaName: p.mediaAsset.name,
     mediaType: p.mediaAsset.type,
+    postFormat: p.postFormat,
     account: p.instagramAccount.username,
     category: p.automation?.category?.name ?? null,
     automationName: p.automation?.name ?? null,

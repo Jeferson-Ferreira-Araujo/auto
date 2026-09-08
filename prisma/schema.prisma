@@ -63,6 +63,12 @@ enum PostStatus {
   CANCELLED
 }
 
+enum PostFormat {
+  AUTO // imagem → post no feed · vídeo → Reel
+  STORY
+  CAROUSEL
+}
+
 enum PostSource {
   MANUAL
   AUTOMATION
@@ -417,6 +423,9 @@ model ScheduledPost {
   mediaAssetId         String
   automationId         String?
   source               PostSource @default(MANUAL)
+  postFormat           PostFormat @default(AUTO)
+  /// Itens 2..10 do carrossel (o `mediaAssetId` é a capa / item 1). Só usado quando postFormat = CAROUSEL.
+  carouselExtraIds     String[]   @default([])
   caption              String?    @db.Text
   scheduledAt          DateTime
   status               PostStatus @default(SCHEDULED)

@@ -21,6 +21,7 @@ export type CalPost = {
   mediaId: string;
   mediaName: string;
   mediaType: MediaType;
+  postFormat: "AUTO" | "STORY" | "CAROUSEL";
   account: string;
   category: string | null;
   automationName: string | null;
@@ -140,9 +141,15 @@ export function CalendarClient({
                     >
                       <MediaThumb id={p.mediaId} type={p.mediaType} className="h-11 w-11 shrink-0 rounded-lg object-cover" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{p.mediaName}</span>
+                        <span className="block truncate text-sm font-medium">
+                          {p.postFormat === "STORY" && "📱 "}
+                          {p.postFormat === "CAROUSEL" && "🖼️➕ "}
+                          {p.mediaName}
+                        </span>
                         <span className="block text-xs text-[var(--color-muted)]">
                           {formatTime(p.scheduledAt, timezone)} · {POST_STATUS_LABEL[p.status]}
+                          {p.postFormat === "STORY" && " · Story"}
+                          {p.postFormat === "CAROUSEL" && " · Carrossel"}
                         </span>
                       </span>
                       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor(p.status)}`} />
@@ -396,20 +403,30 @@ function NewPost({
   const [mediaId, setMediaId] = useState(media[0]?.id ?? "");
   const [caption, setCaption] = useState(media[0]?.caption ?? "");
   const [when, setWhen] = useState(`${date}T09:00`);
+  const [format, setFormat] = useState<"AUTO" | "STORY" | "CAROUSEL">("AUTO");
+  const [extraIds, setExtraIds] = useState<string[]>([]);
 
   function onMediaChange(id: string) {
     setMediaId(id);
+    setExtraIds((cur) => cur.filter((x) => x !== id));
     const m = media.find((x) => x.id === id);
     setCaption(m?.caption ?? "");
   }
 
+  const carouselTotal = 1 + extraIds.length;
+
   function submit() {
+    if (format === "CAROUSEL" && (carouselTotal < 2 || carouselTotal > 10)) {
+      return toast.push("Um carrossel tem de 2 a 10 mídias.", "error");
+    }
     start(async () => {
       const res = await createManualPost({
         instagramAccountId: accountId,
         mediaAssetId: mediaId,
         caption: caption.trim() ? caption : null,
         scheduledAt: new Date(when),
+        format,
+        carouselExtraIds: format === "CAROUSEL" ? extraIds : undefined,
       });
       if (!res.ok) return toast.push(res.error.message, "error");
       toast.push("Publicação agendada", "success");
@@ -438,7 +455,14 @@ function NewPost({
           ))}
         </Select>
       </Field>
-      <Field label="Mídia">
+      <Field label="Formato">
+        <Select value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
+          <option value="AUTO">Feed (foto) / Reel (vídeo) — automático</option>
+          <option value="STORY">Story</option>
+          <option value="CAROUSEL">Carrossel</option>
+        </Select>
+      </Field>
+      <Field label={format === "CAROUSEL" ? "Primeira mídia (capa)" : "Mídia"}>
         <Select value={mediaId} onChange={(e) => onMediaChange(e.target.value)}>
           {media.map((m) => (
             <option key={m.id} value={m.id}>
@@ -447,7 +471,28 @@ function NewPost({
           ))}
         </Select>
       </Field>
-      {mediaId && (
+      {format === "CAROUSEL" && (
+        <Field
+          label={`Outras mídias do carrossel (${carouselTotal}/10)`}
+          hint="Segure Ctrl/Cmd para escolher várias. Total de 2 a 10."
+        >
+          <select
+            multiple
+            value={extraIds}
+            onChange={(e) => setExtraIds([...e.target.selectedOptions].map((o) => o.value))}
+            className="h-32 w-full rounded-[var(--radius)] border bg-white p-2 text-sm"
+          >
+            {media
+              .filter((m) => m.id !== mediaId)
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.type === "VIDEO" ? "🎬" : "🖼"} {m.name}
+                </option>
+              ))}
+          </select>
+        </Field>
+      )}
+      {mediaId && format !== "CAROUSEL" && (
         <div className="mb-4 overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)]">
           {media.find((m) => m.id === mediaId)?.type === "VIDEO" ? (
             <video src={mediaUrl(mediaId, "preview")} controls className="max-h-52 w-full" />
@@ -465,14 +510,29 @@ function NewPost({
           className="h-10 w-full rounded-[var(--radius)] border bg-white px-3 text-sm"
         />
       </Field>
-      <Field label="Legenda" hint="Começa com a legenda padrão da mídia. Editar aqui não muda a mídia.">
-        <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2200} />
-      </Field>
+      {format !== "STORY" && (
+        <Field label="Legenda" hint="Começa com a legenda padrão da mídia. Editar aqui não muda a mídia.">
+          <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2200} />
+        </Field>
+      )}
+      {format === "STORY" && (
+        <p className="mb-3 text-xs text-[var(--color-muted)]">
+          Stories não têm legenda e somem em 24h. Vídeo de story: até 60s.
+        </p>
+      )}
       <div className="mt-2 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose} disabled={pending}>
           Cancelar
         </Button>
-        <Button onClick={submit} disabled={pending || !accountId || !mediaId}>
+        <Button
+          onClick={submit}
+          disabled={
+            pending ||
+            !accountId ||
+            !mediaId ||
+            (format === "CAROUSEL" && (carouselTotal < 2 || carouselTotal > 10))
+          }
+        >
           Agendar
         </Button>
       </div>

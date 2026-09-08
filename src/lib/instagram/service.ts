@@ -190,6 +190,67 @@ export const InstagramService = {
     return res.id;
   },
 
+  /** Container de Story (imagem OU vídeo). Sem legenda — o Instagram ignora. */
+  async createStoryContainer(input: {
+    accessToken: string;
+    igUserId: string;
+    imageUrl?: string;
+    videoUrl?: string;
+  }): Promise<string> {
+    const url = new URL(`${GRAPH}/${API_VERSION}/${input.igUserId}/media`);
+    const body = new URLSearchParams({ media_type: "STORIES", access_token: input.accessToken });
+    if (input.videoUrl) body.set("video_url", input.videoUrl);
+    else if (input.imageUrl) body.set("image_url", input.imageUrl);
+    else throw new Error("story precisa de imagem ou vídeo");
+    const res = (await parseMetaResponse(
+      await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }),
+    )) as { id: string };
+    log.info({ containerId: res.id }, "container de story criado");
+    return res.id;
+  },
+
+  /** Container de UM item de carrossel (imagem ou vídeo). Sem legenda. */
+  async createCarouselItemContainer(input: {
+    accessToken: string;
+    igUserId: string;
+    imageUrl?: string;
+    videoUrl?: string;
+  }): Promise<string> {
+    const url = new URL(`${GRAPH}/${API_VERSION}/${input.igUserId}/media`);
+    const body = new URLSearchParams({ is_carousel_item: "true", access_token: input.accessToken });
+    if (input.videoUrl) {
+      body.set("media_type", "VIDEO");
+      body.set("video_url", input.videoUrl);
+    } else if (input.imageUrl) {
+      body.set("image_url", input.imageUrl);
+    } else throw new Error("item de carrossel precisa de imagem ou vídeo");
+    const res = (await parseMetaResponse(
+      await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }),
+    )) as { id: string };
+    return res.id;
+  },
+
+  /** Container do carrossel — junta os itens (2 a 10) numa publicação com legenda. */
+  async createCarouselContainer(input: {
+    accessToken: string;
+    igUserId: string;
+    children: string[];
+    caption?: string;
+  }): Promise<string> {
+    const url = new URL(`${GRAPH}/${API_VERSION}/${input.igUserId}/media`);
+    const body = new URLSearchParams({
+      media_type: "CAROUSEL",
+      children: input.children.join(","),
+      access_token: input.accessToken,
+    });
+    if (input.caption) body.set("caption", input.caption);
+    const res = (await parseMetaResponse(
+      await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }),
+    )) as { id: string };
+    log.info({ containerId: res.id, items: input.children.length }, "container de carrossel criado");
+    return res.id;
+  },
+
   async getContainerStatus(
     accessToken: string,
     containerId: string,

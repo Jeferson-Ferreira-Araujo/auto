@@ -129,19 +129,14 @@ async function publishOne(id: string): Promise<OneOutcome> {
   try {
     const token = await getValidAccessToken(post.instagramAccount);
     const igUserId = post.instagramAccount.igUserId;
-    const { mediaKey } = publishKeys(post.mediaAsset);
-    const mediaUrl = await presignGet(mediaKey, 7200);
     const caption = post.caption ?? post.mediaAsset.caption ?? undefined;
 
     // 1. Container (reutiliza se já existir).
     let containerId = post.instagramContainerId;
     if (!containerId) {
-      containerId =
-        post.mediaAsset.type === "IMAGE"
-          ? await InstagramService.createImageContainer({ accessToken: token, igUserId, imageUrl: mediaUrl, caption })
-          : await InstagramService.createReelContainer({ accessToken: token, igUserId, videoUrl: mediaUrl, caption });
+      containerId = await buildContainer(post, token, igUserId, caption);
       await prisma.scheduledPost.update({ where: { id }, data: { instagramContainerId: containerId } });
-      await logAttempt(post, "CONTAINER", "SUCCESS", `container ${containerId}`);
+      await logAttempt(post, "CONTAINER", "SUCCESS", `container ${containerId} (${post.postFormat})`);
     }
 
     // 2. Aguarda o processamento (algumas tentativas curtas por execução).
@@ -173,13 +168,14 @@ async function publishOne(id: string): Promise<OneOutcome> {
     // 3. Publica.
     const mediaId = await InstagramService.publishContainer(token, igUserId, containerId);
 
+    const usedIds = [post.mediaAssetId, ...post.carouselExtraIds];
     await prisma.$transaction([
       prisma.scheduledPost.update({
         where: { id },
         data: { status: "PUBLISHED", instagramMediaId: mediaId, publishedAt: new Date(), errorMessage: null, lockedAt: null },
       }),
-      prisma.mediaAsset.update({
-        where: { id: post.mediaAssetId },
+      prisma.mediaAsset.updateMany({
+        where: { id: { in: usedIds } },
         data: { usageCount: { increment: 1 }, lastPublishedAt: new Date() },
       }),
     ]);
@@ -258,6 +254,50 @@ async function ensureWatermarked(
   await logAttempt(post, "CONTAINER", "SUCCESS", "aguardando a versão com marca d'água");
   l.info("marca d'água ainda processando; adiado");
   return "deferred";
+}
+
+/** Cria o container certo conforme o formato (AUTO = feed/Reel, STORY, CAROUSEL). */
+async function buildContainer(
+  post: PostWithRefs,
+  token: string,
+  igUserId: string,
+  caption: string | undefined,
+): Promise<string> {
+  const urlFor = async (asset: PostWithRefs["mediaAsset"]) =>
+    presignGet(publishKeys(asset).mediaKey, 7200);
+
+  if (post.postFormat === "STORY") {
+    const u = await urlFor(post.mediaAsset);
+    return post.mediaAsset.type === "VIDEO"
+      ? InstagramService.createStoryContainer({ accessToken: token, igUserId, videoUrl: u })
+      : InstagramService.createStoryContainer({ accessToken: token, igUserId, imageUrl: u });
+  }
+
+  if (post.postFormat === "CAROUSEL") {
+    const ids = [post.mediaAssetId, ...post.carouselExtraIds];
+    const assets = await prisma.mediaAsset.findMany({
+      where: { id: { in: ids }, organizationId: post.organizationId },
+    });
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    const children: string[] = [];
+    for (const mid of ids) {
+      const a = byId.get(mid);
+      if (!a) throw new Error(`mídia do carrossel não encontrada: ${mid}`);
+      const u = await presignGet(publishKeys(a).mediaKey, 7200);
+      children.push(
+        a.type === "VIDEO"
+          ? await InstagramService.createCarouselItemContainer({ accessToken: token, igUserId, videoUrl: u })
+          : await InstagramService.createCarouselItemContainer({ accessToken: token, igUserId, imageUrl: u }),
+      );
+    }
+    return InstagramService.createCarouselContainer({ accessToken: token, igUserId, children, caption });
+  }
+
+  // AUTO
+  const u = await urlFor(post.mediaAsset);
+  return post.mediaAsset.type === "IMAGE"
+    ? InstagramService.createImageContainer({ accessToken: token, igUserId, imageUrl: u, caption })
+    : InstagramService.createReelContainer({ accessToken: token, igUserId, videoUrl: u, caption });
 }
 
 /** Aplica retry/backoff ou marca FAILED em definitivo. */

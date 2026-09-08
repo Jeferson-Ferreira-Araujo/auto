@@ -18,6 +18,8 @@ export const createManualPost = orgAction(manualScheduleSchema, async (input, { 
     caption: input.caption ?? null,
     scheduledAt: input.scheduledAt,
     source: "MANUAL",
+    format: input.format,
+    carouselExtraIds: input.carouselExtraIds,
   });
   revalidatePath("/calendario");
   revalidateOrg(org.id, "dashboard");

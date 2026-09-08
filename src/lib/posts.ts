@@ -1,4 +1,4 @@
-import type { PostSource, PostStatus } from "@prisma/client";
+import type { PostFormat, PostSource, PostStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { AppError, conflict, notFound, validation } from "@/lib/errors";
 
@@ -12,6 +12,9 @@ export type CreateScheduledPostInput = {
   scheduledAt: Date;
   source: PostSource;
   automationId?: string | null;
+  format?: PostFormat;
+  /** Itens 2..10 do carrossel (o `mediaAssetId` é o item 1). */
+  carouselExtraIds?: string[];
 };
 
 /**
@@ -43,6 +46,21 @@ export async function createScheduledPost(organizationId: string, input: CreateS
     throw new AppError("VALIDATION", "Escolha um horário no futuro.");
   }
 
+  const format: PostFormat = input.format ?? "AUTO";
+  let carouselExtraIds: string[] = [];
+
+  if (format === "CAROUSEL") {
+    const extras = [...new Set(input.carouselExtraIds ?? [])].filter((id) => id !== media.id);
+    const total = 1 + extras.length;
+    if (total < 2 || total > 10) throw validation("Um carrossel tem de 2 a 10 mídias.");
+    const ready = await prisma.mediaAsset.findMany({
+      where: { id: { in: extras }, organizationId, processingStatus: "READY" },
+      select: { id: true },
+    });
+    if (ready.length !== extras.length) throw validation("Alguma mídia do carrossel não está pronta.");
+    carouselExtraIds = extras;
+  }
+
   return prisma.scheduledPost.create({
     data: {
       organizationId,
@@ -50,6 +68,8 @@ export async function createScheduledPost(organizationId: string, input: CreateS
       mediaAssetId: media.id,
       automationId: input.automationId ?? null,
       source: input.source,
+      postFormat: format,
+      carouselExtraIds,
       caption: input.caption ?? media.caption ?? null,
       scheduledAt: input.scheduledAt,
       status: "SCHEDULED",
