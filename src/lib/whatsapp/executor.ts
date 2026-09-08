@@ -271,6 +271,7 @@ export async function executeCommand(
       const media = await lastMedia(contact);
       if (!media) return awaitMediaText("publish");
       if (media.processingStatus !== "READY") return text("A última mídia ainda está sendo preparada. Tente de novo em instantes.");
+      const dest = parsed.format === "STORY" ? " no *story*" : "";
       if (parsed.scheduledAt) {
         try {
           await createScheduledPost(org.id, {
@@ -278,15 +279,16 @@ export async function executeCommand(
             scheduledAt: parsed.scheduledAt,
             caption: parsed.caption,
             source: "MANUAL",
+            format: parsed.format,
           });
-          return text(`✅ Publicação agendada para *${describeWhen(parsed.scheduledAt, tz)}*.`);
+          return text(`✅ Publicação${dest} agendada para *${describeWhen(parsed.scheduledAt, tz)}*.`);
         } catch (err) {
           return text(`❌ Não consegui agendar: ${err instanceof Error ? err.message : "erro"}`);
         }
       }
       return {
-        result: { kind: "text", text: "Quando devo publicar? Responda com o horário, ex.: *amanhã às 18h* ou *hoje 20:00*." },
-        pending: { type: "SCHEDULE_WITH_MEDIA", mediaAssetId: media.id, caption: parsed.caption },
+        result: { kind: "text", text: `Quando devo publicar${dest}? Responda com o horário, ex.: *amanhã às 18h* ou *hoje 20:00*.` },
+        pending: { type: "SCHEDULE_WITH_MEDIA", mediaAssetId: media.id, caption: parsed.caption, format: parsed.format },
       };
     }
 

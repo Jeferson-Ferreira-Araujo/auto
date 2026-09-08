@@ -37,7 +37,7 @@ export type ParsedCommand =
   | { kind: "CANCEL_TODAY" }
   | { kind: "CANCEL_ONE"; day: "today" | "tomorrow"; hhmm: string | null }
   | { kind: "RESCHEDULE"; fromHhmm: string | null; day: "today" | "tomorrow"; to: Date | null }
-  | { kind: "SCHEDULE_POST"; scheduledAt: Date | null; caption: string | null }
+  | { kind: "SCHEDULE_POST"; scheduledAt: Date | null; caption: string | null; format?: "STORY" }
   | { kind: "SCHEDULE_FROM_CATEGORY"; terms: string[]; scheduledAt: Date | null; caption: string | null }
   | { kind: "PUBLISH_NOW" }
   | { kind: "SAVE_TO_LIBRARY" }
@@ -59,8 +59,8 @@ export type CommandContext = {
 
 /** Estado de conversa persistido em WhatsAppContact.pendingAction. */
 export type PendingAction =
-  | { type: "SCHEDULE_WITH_MEDIA"; mediaAssetId: string; caption: string | null }
-  | { type: "CONFIRM_SCHEDULE"; mediaAssetId: string; scheduledAt: string; caption: string | null }
+  | { type: "SCHEDULE_WITH_MEDIA"; mediaAssetId: string; caption: string | null; format?: "STORY" }
+  | { type: "CONFIRM_SCHEDULE"; mediaAssetId: string; scheduledAt: string; caption: string | null; format?: "STORY" }
   | { type: "CONFIRM_CANCEL_TODAY"; count: number }
   | { type: "CONFIRM_CANCEL_ONE"; postId: string; label: string }
   | { type: "CONFIRM_RESCHEDULE"; postId: string; toIso: string; label: string }

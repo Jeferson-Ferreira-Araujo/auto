@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { childLogger } from "@/lib/logger";
 import { createScheduledPost } from "@/lib/posts";
 import { WhatsAppService } from "./service";
-import { defaultParser } from "./parser";
+import { defaultParser, wantsStory } from "./parser";
 import { parseWhenLoose, describeWhen } from "./dates";
 import { isLinkCodeMatch, PENDING_TTL_MS } from "./link";
 import { HELP_TEXT } from "./commands";
@@ -170,7 +170,12 @@ export async function handleInboundMessage(msg: IncomingMessage): Promise<void> 
 
     // Mídia recém-recebida sem intenção clara na legenda → assume "agendar".
     if (mediaReady && (parsed.kind === "UNKNOWN" || parsed.kind === "MENU" || parsed.kind === "HELP")) {
-      parsed = { kind: "SCHEDULE_POST", scheduledAt: null, caption: null };
+      parsed = {
+        kind: "SCHEDULE_POST",
+        scheduledAt: null,
+        caption: null,
+        format: wantsStory(text.toLowerCase()) ? "STORY" : undefined,
+      };
     }
 
     parsedForLog = { parsed };
@@ -224,14 +229,23 @@ async function resolvePending(
     if (!when) {
       return { result: { kind: "text", text: "Não entendi o horário. Responda algo como *amanhã às 18h* ou *hoje 20:00*." }, pending };
     }
+    const format =
+      ("format" in pending && pending.format) || (wantsStory(input.text.toLowerCase()) ? "STORY" : undefined);
     try {
       await createScheduledPost(org.id, {
         mediaAssetId,
         scheduledAt: when,
         caption: extractCaption(input.text) ?? ("caption" in pending ? pending.caption : null),
         source: "MANUAL",
+        format,
       });
-      return { result: { kind: "text", text: `✅ Publicação agendada para *${describeWhen(when, input.tz)}*.` }, pending: null };
+      return {
+        result: {
+          kind: "text",
+          text: `✅ Publicação${format === "STORY" ? " no *story*" : ""} agendada para *${describeWhen(when, input.tz)}*.`,
+        },
+        pending: null,
+      };
     } catch (err) {
       return { result: { kind: "text", text: `❌ Não consegui agendar: ${err instanceof Error ? err.message : "erro"}` }, pending: null };
     }
@@ -244,7 +258,12 @@ async function resolvePending(
           ? { kind: "ENHANCE_VIDEO" }
           : pending.purpose === "library"
             ? { kind: "SAVE_TO_LIBRARY" }
-            : { kind: "SCHEDULE_POST", scheduledAt: parseWhenLoose(input.text, input.tz), caption: extractCaption(input.text) };
+            : {
+                kind: "SCHEDULE_POST",
+                scheduledAt: parseWhenLoose(input.text, input.tz),
+                caption: extractCaption(input.text),
+                format: wantsStory(input.text.toLowerCase()) ? "STORY" : undefined,
+              };
       const out = await executeCommand({ org, contact }, override);
       return { result: out.result, pending: out.pending ?? null };
     }

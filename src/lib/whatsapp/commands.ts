@@ -34,6 +34,7 @@ export const HELP_TEXT = [
   "🤖 *AUTORA* — o que dá pra fazer por aqui:",
   "",
   "• Envie uma *foto* ou *vídeo* e diga quando publicar (_“amanhã às 18h”_) ou _“publique agora”_",
+  "• Para Story: _“publique no story amanhã 9h”_ (some em 24h, sem legenda)",
   "• *o que tem hoje / amanhã / essa semana?*",
   "• *mude o post das 18h para 20h* · *cancele a publicação de hoje às 12h*",
   "• *pause todas as automações* · *ative novamente Promoções*",

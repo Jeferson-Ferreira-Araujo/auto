@@ -30,6 +30,11 @@ function extractCaption(rawText: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+/** Detecta pedido de Story ("no story", "nos stories", "storys"). Recebe texto já normalizado. */
+export function wantsStory(normText: string): boolean {
+  return /\b(story|storie|stories|storys)\b/.test(normText);
+}
+
 /** Divide "pizza de frango" / "Produtos › Pizzas › Frango" em termos. */
 function splitTerms(s: string): string[] {
   return norm(s)
@@ -253,7 +258,7 @@ export class DeterministicParser implements CommandParser {
         if (terms.length > 0) return { kind: "SCHEDULE_FROM_CATEGORY", terms, scheduledAt: when, caption };
         if (/\b(agora|imediatamente|ja)\b/.test(t)) return { kind: "PUBLISH_NOW" };
       }
-      return { kind: "SCHEDULE_POST", scheduledAt: when, caption };
+      return { kind: "SCHEDULE_POST", scheduledAt: when, caption, format: wantsStory(t) ? "STORY" : undefined };
     }
 
     return { kind: "UNKNOWN" };
