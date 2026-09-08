@@ -248,15 +248,16 @@ export class DeterministicParser implements CommandParser {
       hasMedia ||
       /\b(poste|postar|publique?|publicar|agende?|agendar|marca[r]?|programa[r]?|crie?|criar|faca|fazer|monte|montar)\b/.test(t);
     if (publishIntent) {
+      const story: "STORY" | undefined = wantsStory(t) ? "STORY" : undefined;
       if (hasMedia && /\b(agora|imediatamente|ja|neste momento|agora mesmo)\b/.test(t)) {
-        return { kind: "PUBLISH_NOW" };
+        return { kind: "PUBLISH_NOW", format: story };
       }
       const when = parsePtBrDateTime(raw, input.timezone, now);
       const caption = extractCaption(raw);
       if (!hasMedia) {
         const terms = extractContentTerms(raw);
         if (terms.length > 0) return { kind: "SCHEDULE_FROM_CATEGORY", terms, scheduledAt: when, caption };
-        if (/\b(agora|imediatamente|ja)\b/.test(t)) return { kind: "PUBLISH_NOW" };
+        if (/\b(agora|imediatamente|ja)\b/.test(t)) return { kind: "PUBLISH_NOW", format: story };
       }
       return { kind: "SCHEDULE_POST", scheduledAt: when, caption, format: wantsStory(t) ? "STORY" : undefined };
     }

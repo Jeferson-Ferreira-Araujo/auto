@@ -39,7 +39,7 @@ export type ParsedCommand =
   | { kind: "RESCHEDULE"; fromHhmm: string | null; day: "today" | "tomorrow"; to: Date | null }
   | { kind: "SCHEDULE_POST"; scheduledAt: Date | null; caption: string | null; format?: "STORY" }
   | { kind: "SCHEDULE_FROM_CATEGORY"; terms: string[]; scheduledAt: Date | null; caption: string | null }
-  | { kind: "PUBLISH_NOW" }
+  | { kind: "PUBLISH_NOW"; format?: "STORY" }
   | { kind: "SAVE_TO_LIBRARY" }
   | { kind: "SET_CATEGORY"; terms: string[] }
   | { kind: "LIST_CATEGORIES" }
@@ -64,7 +64,7 @@ export type PendingAction =
   | { type: "CONFIRM_CANCEL_TODAY"; count: number }
   | { type: "CONFIRM_CANCEL_ONE"; postId: string; label: string }
   | { type: "CONFIRM_RESCHEDULE"; postId: string; toIso: string; label: string }
-  | { type: "CONFIRM_PUBLISH_NOW"; mediaAssetId: string }
+  | { type: "CONFIRM_PUBLISH_NOW"; mediaAssetId: string; format?: "STORY" }
   | { type: "AWAIT_MEDIA"; purpose: "publish" | "library" | "enhance" }
   | { type: "AWAIT_CATEGORY"; mediaAssetId: string };
 

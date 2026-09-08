@@ -296,16 +296,17 @@ export async function executeCommand(
       const media = await lastMedia(contact);
       if (!media) return awaitMediaText("publish");
       if (media.processingStatus !== "READY") return text("A última mídia ainda está sendo preparada. Tente de novo em instantes.");
+      const onde = parsed.format === "STORY" ? "no *story*" : "no Instagram";
       return {
         result: {
           kind: "buttons",
-          body: `Publicar *${media.name}* no Instagram agora?${media.type === "VIDEO" ? " (o Reel leva alguns minutos para processar)" : ""}`,
+          body: `Publicar *${media.name}* ${onde} agora?${media.type === "VIDEO" && parsed.format !== "STORY" ? " (o Reel leva alguns minutos para processar)" : ""}`,
           options: [
             { id: "confirm:yes", title: "Publicar" },
             { id: "confirm:no", title: "Não" },
           ],
         },
-        pending: { type: "CONFIRM_PUBLISH_NOW", mediaAssetId: media.id },
+        pending: { type: "CONFIRM_PUBLISH_NOW", mediaAssetId: media.id, format: parsed.format },
       };
     }
 
@@ -422,8 +423,13 @@ export async function applyPending(
           mediaAssetId: pending.mediaAssetId,
           scheduledAt: new Date(Date.now() + 60_000),
           source: "MANUAL",
+          format: pending.format,
         });
-        return text("🚀 Publicação na fila — vai ao ar em instantes.");
+        return text(
+          pending.format === "STORY"
+            ? "🚀 Story na fila — vai ao ar em instantes."
+            : "🚀 Publicação na fila — vai ao ar em instantes.",
+        );
       } catch (err) {
         return text(`❌ Não consegui publicar: ${err instanceof Error ? err.message : "erro"}`);
       }
