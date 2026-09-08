@@ -1,0 +1,69 @@
+name: publish
+
+# Publicação do Instagram precisa de pontualidade. O agendamento `schedule` de
+# alta frequência do GitHub Actions é pouco confiável (pula execuções sob carga),
+# então este workflow se **re-agenda sozinho** via workflow_dispatch ao terminar:
+#   1 execução = 4 checagens de `publish` (a cada ~90s, ~5 min no total)
+#   ao fim, dispara a próxima execução → cadência contínua de ~90s
+# O `schedule` abaixo é só o "religa" caso a corrente pare (erro, cancelamento).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Ciclo de publicação (~5 min, checa a cada 90s)
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          DATABASE_URL: ${{ secrets.WORKER_DB_URL }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          INSTAGRAM_REDIRECT_URI: ${{ secrets.INSTAGRAM_REDIRECT_URI }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          for i in 1 2 3 4; do
+            npx tsx scripts/cron-worker/index.ts "publish,process-events" || true
+            [ "$i" -lt 4 ] && sleep 90
+          done
+      - name: Re-agenda o próximo ciclo
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "Sem GH_DISPATCH_TOKEN — a corrente não se re-agenda (o schedule */15 religa)."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/publish.yml/dispatches" \
+            -d '{"ref":"main"}')
+          echo "re-dispatch HTTP ${code}"

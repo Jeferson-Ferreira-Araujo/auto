@@ -8,15 +8,15 @@ name: cron
 
 on:
   schedule:
-    - cron: "*/5 * * * *" # publish
-    - cron: "*/30 * * * *" # generate + video-recover
+    # publish + process-events ficam no workflow `publish.yml` (auto-reagendado ~90s).
+    - cron: "*/15 * * * *" # generate + video-recover + detect-expirations + process-events (backup)
     - cron: "0 */3 * * *" # sync-insights
     - cron: "0 6 * * *" # refresh-tokens + whatsapp-health
     - cron: "0 11 * * *" # send-promos (~8h BRT — promoção do dia seguinte ao pedido)
   workflow_dispatch:
     inputs:
       jobs:
-        description: "lista separada por vírgula: generate,publish,refresh-tokens,video-recover,sync-insights"
+        description: "lista separada por vírgula: generate,publish,refresh-tokens,video-recover,sync-insights,detect-expirations,process-events,send-promos,whatsapp-health"
         required: true
 
 permissions:
@@ -41,8 +41,7 @@ jobs:
         id: pick
         run: |
           case "${{ github.event.schedule }}" in
-            "*/5 * * * *")  echo "jobs=publish" >> "$GITHUB_OUTPUT" ;;
-            "*/30 * * * *") echo "jobs=generate,video-recover,detect-expirations,process-events" >> "$GITHUB_OUTPUT" ;;
+            "*/15 * * * *") echo "jobs=generate,video-recover,detect-expirations,process-events" >> "$GITHUB_OUTPUT" ;;
             "0 */3 * * *")  echo "jobs=sync-insights" >> "$GITHUB_OUTPUT" ;;
             "0 6 * * *")    echo "jobs=refresh-tokens,whatsapp-health" >> "$GITHUB_OUTPUT" ;;
             "0 11 * * *")   echo "jobs=send-promos" >> "$GITHUB_OUTPUT" ;;
