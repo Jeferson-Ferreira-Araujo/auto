@@ -116,19 +116,20 @@ async function processMerge(db: Client, job: Job) {
       await download(job.inputStorageKeys[i], inputs[i]);
     }
 
-    let totalDur = 0;
+    const durations: number[] = [];
     for (const p of inputs) {
       const pr = await ffprobe(p);
       if (pr.durationSec <= 0 || pr.width === 0) throw new Error("Um dos arquivos não é um vídeo válido.");
-      totalDur += pr.durationSec;
+      durations.push(pr.durationSec);
     }
+    const totalDur = durations.reduce((a, b) => a + b, 0);
     if (totalDur > MAX_MERGE_DURATION_SEC) {
       throw new Error(`A soma dos vídeos (${Math.round(totalDur)}s) passa do limite de 15 minutos.`);
     }
 
     await db.query(`UPDATE video_jobs SET progress = 35, "updatedAt" = now() WHERE id = $1`, [job.id]);
     try {
-      await exec("ffmpeg", buildMergeArgs(inputs, outPath), { maxBuffer: 1024 * 1024 * 32 });
+      await exec("ffmpeg", buildMergeArgs(inputs, durations, outPath), { maxBuffer: 1024 * 1024 * 32 });
     } catch (e) {
       const se = (e as { stderr?: string }).stderr ?? "";
       throw new Error(`ffmpeg: ${se.split("\n").slice(-6).join(" | ").slice(0, 600)}`);
