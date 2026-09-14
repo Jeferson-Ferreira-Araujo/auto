@@ -19,6 +19,13 @@ import { runExpirationDetection } from "@/lib/products/detect";
 import { processDomainEvents } from "@/lib/events/process";
 import { refreshWhatsAppHealth } from "@/lib/whatsapp/health";
 import { sendPendingPromos } from "@/lib/whatsapp/promo";
+import { isFeatureEnabledRaw } from "@/lib/features-core";
+
+/** Só roda o job se a funcionalidade dona dele estiver ligada (interruptor global do SuperAdmin). */
+async function ifEnabled(key: "products_expiration" | "marketing_whatsapp", run: () => Promise<unknown>) {
+  if (!(await isFeatureEnabledRaw(key))) return { skipped: true, feature: key };
+  return run();
+}
 
 const JOBS: Record<string, () => Promise<unknown>> = {
   generate: () => runGenerate(),
@@ -26,10 +33,10 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   "refresh-tokens": () => runRefreshTokens(),
   "video-recover": () => VideoProcessingService.retryStuck(),
   "sync-insights": () => InstagramInsightsService.syncAll(),
-  "detect-expirations": () => runExpirationDetection(),
+  "detect-expirations": () => ifEnabled("products_expiration", runExpirationDetection),
   "process-events": () => processDomainEvents(),
   "whatsapp-health": () => refreshWhatsAppHealth(),
-  "send-promos": () => sendPendingPromos(),
+  "send-promos": () => ifEnabled("marketing_whatsapp", sendPendingPromos),
   // Toca o Postgres para o projeto Supabase (plano free) não entrar em suspensão
   // por inatividade. Ver .github/workflows/keepalive.yml.
   keepalive: () => prisma.$queryRaw`SELECT 1`,

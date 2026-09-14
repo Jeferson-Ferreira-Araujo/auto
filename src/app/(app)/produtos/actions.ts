@@ -15,6 +15,7 @@ import {
 } from "@/lib/validation/schemas";
 import * as products from "@/lib/products/service";
 import { buildKey, deleteObject, putObject } from "@/lib/storage/r2";
+import { requireFeatureEnabled } from "@/lib/features";
 
 function bump(orgId: string) {
   revalidatePath("/produtos");
@@ -23,6 +24,7 @@ function bump(orgId: string) {
 }
 
 export const registerExpiration = orgAction(registerExpirationSchema, async (input, { org, user }) => {
+  await requireFeatureEnabled("products_expiration");
   const exp = await products.registerExpiration(org.id, user.id, {
     productId: input.productId,
     barcode: input.barcode ?? null,
@@ -53,6 +55,7 @@ function sniffImage(buf: Buffer): "webp" | "jpeg" | "png" | null {
 
 /** Salva/atualiza a foto do produto (data URL já reduzida no navegador) no R2. */
 export const setProductImage = orgAction(setProductImageSchema, async (input, { org }) => {
+  await requireFeatureEnabled("products_expiration");
   const product = await prisma.product.findFirst({
     where: { id: input.productId, organizationId: org.id },
     select: { id: true, imageKey: true },
@@ -80,12 +83,14 @@ export const setProductImage = orgAction(setProductImageSchema, async (input, { 
 });
 
 export const resolveExpiration = orgAction(resolveExpirationSchema, async (input, { org }) => {
+  await requireFeatureEnabled("products_expiration");
   await products.resolveExpiration(org.id, input.id, input.outcome);
   bump(org.id);
   return { id: input.id };
 });
 
 export const lookupProduct = orgAction(lookupProductSchema, async (input, { org }) => {
+  await requireFeatureEnabled("products_expiration");
   const product = await prisma.product.findFirst({
     where: { organizationId: org.id, barcode: input.barcode },
     select: { id: true, name: true, barcode: true },
@@ -94,6 +99,7 @@ export const lookupProduct = orgAction(lookupProductSchema, async (input, { org 
 });
 
 export const upsertProduct = orgAction(productSchema, async (input, { org, user }) => {
+  await requireFeatureEnabled("products_expiration");
   if (input.id) {
     const existing = await prisma.product.findFirst({ where: { id: input.id, organizationId: org.id } });
     if (!existing) throw notFound("Produto não encontrado.");
@@ -112,6 +118,7 @@ export const upsertProduct = orgAction(productSchema, async (input, { org, user 
 });
 
 export const reactivateProduct = orgAction(z.object({ id: z.string().min(1) }), async (input, { org }) => {
+  await requireFeatureEnabled("products_expiration");
   const p = await prisma.product.findFirst({ where: { id: input.id, organizationId: org.id } });
   if (!p) throw notFound("Produto não encontrado.");
   await prisma.product.update({ where: { id: input.id }, data: { active: true } });

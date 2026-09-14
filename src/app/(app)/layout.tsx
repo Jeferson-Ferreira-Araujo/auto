@@ -1,5 +1,6 @@
 import { requireUser, getOptionalOrgContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { FEATURE_KEYS, listFeatureFlags } from "@/lib/features";
 import { Sidebar } from "./nav";
 import { Topbar } from "./Topbar";
 import { AccountSuspended, OrgSuspended } from "./Suspended";
@@ -32,6 +33,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const userName = user.name?.trim() || user.email.split("@")[0];
   const userRole = ctx ? (ROLE_LABEL[ctx.membership.role] ?? "Membro") : "";
 
+  const flags = await listFeatureFlags();
+  const disabledFeatures = FEATURE_KEYS.filter((k) => !flags[k]);
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar
@@ -39,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         orgHandle={instagram?.username ?? null}
         paused={ctx?.org.autoPublishStatus === "PAUSED"}
         isSuperAdmin={user.isSuperAdmin}
+        disabledFeatures={disabledFeatures}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar userName={userName} userRole={userRole} />

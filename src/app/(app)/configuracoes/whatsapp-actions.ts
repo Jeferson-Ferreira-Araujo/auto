@@ -6,10 +6,12 @@ import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
 import { conflict, validation } from "@/lib/errors";
 import { generateLinkCode, toE164, LINK_CODE_TTL_MS } from "@/lib/whatsapp/link";
+import { requireFeatureEnabled } from "@/lib/features";
 
 export const linkWhatsApp = orgAction(
   z.object({ phone: z.string().min(6).max(20) }),
   async (input, { org, user }) => {
+    await requireFeatureEnabled("marketing_whatsapp");
     const phoneE164 = toE164(input.phone);
     if (!phoneE164) throw validation("Número inválido. Informe com DDD, ex.: (11) 99999-8888.");
 
@@ -50,6 +52,7 @@ export const linkWhatsApp = orgAction(
 );
 
 export const regenerateWhatsAppCode = orgAction(z.object({}), async (_input, { org }) => {
+  await requireFeatureEnabled("marketing_whatsapp");
   const contact = await prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } });
   if (!contact) throw validation("Nenhum número em processo de vínculo.");
   const code = generateLinkCode();

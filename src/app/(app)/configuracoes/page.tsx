@@ -10,6 +10,7 @@ import { LogoUpload } from "./LogoUpload";
 import { WatermarkUpload } from "./WatermarkUpload";
 import { AutoMusicCard } from "./AutoMusicCard";
 import { InstagramPanel } from "./InstagramPanel";
+import { isFeatureEnabled } from "@/lib/features";
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dono", ADMIN: "Administrador", MEMBER: "Membro" };
 
@@ -28,7 +29,8 @@ export default async function ConfiguracoesPage({
 
   const mediaCount = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
 
-  const configured = whatsappConfigured();
+  const whatsappEnabled = await isFeatureEnabled("marketing_whatsapp");
+  const configured = whatsappEnabled && whatsappConfigured();
   const waContact = configured
     ? await prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } })
     : null;
@@ -69,7 +71,7 @@ export default async function ConfiguracoesPage({
 
         <AutoMusicCard currentTrackId={org.autoMusicTrackId} />
 
-        <WhatsAppCard state={whatsappState} />
+        {whatsappEnabled && <WhatsAppCard state={whatsappState} />}
 
         <Card>
           <CardBody>

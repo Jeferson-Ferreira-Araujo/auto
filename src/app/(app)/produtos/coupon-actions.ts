@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { orgAction } from "@/lib/safe-action";
 import { conflict, notFound, validation } from "@/lib/errors";
+import { requireFeatureEnabled } from "@/lib/features";
 
 const codeSchema = z
   .string()
@@ -33,6 +34,7 @@ function expiresAtFrom(s?: string | null): Date | null {
 }
 
 export const createCoupon = orgAction(couponInput, async (input, { org, user }) => {
+  await requireFeatureEnabled("products_coupons");
   const exists = await prisma.coupon.findUnique({
     where: { organizationId_code: { organizationId: org.id, code: input.code } },
   });
@@ -59,6 +61,7 @@ export const createCoupon = orgAction(couponInput, async (input, { org, user }) 
 export const toggleCoupon = orgAction(
   z.object({ id: z.string().min(1), active: z.boolean() }),
   async (input, { org }) => {
+    await requireFeatureEnabled("products_coupons");
     const c = await prisma.coupon.findFirst({ where: { id: input.id, organizationId: org.id } });
     if (!c) throw notFound("Cupom não encontrado.");
     await prisma.coupon.update({ where: { id: c.id }, data: { active: input.active } });
@@ -68,6 +71,7 @@ export const toggleCoupon = orgAction(
 );
 
 export const deleteCoupon = orgAction(z.object({ id: z.string().min(1) }), async (input, { org }) => {
+  await requireFeatureEnabled("products_coupons");
   const c = await prisma.coupon.findFirst({ where: { id: input.id, organizationId: org.id } });
   if (!c) throw notFound("Cupom não encontrado.");
   if (c.timesSent > 0 || c.timesRedeemed > 0) {

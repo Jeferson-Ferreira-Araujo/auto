@@ -3,6 +3,7 @@ import { childLogger } from "@/lib/logger";
 import { WhatsAppService, whatsappConfigured } from "@/lib/whatsapp/service";
 import { handleInboundMessage } from "@/lib/whatsapp/inbound";
 import { recordWhatsAppHealthEvent } from "@/lib/whatsapp/health";
+import { isFeatureEnabled } from "@/lib/features";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,12 +54,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const messages = WhatsAppService.parseWebhook(payload);
-  for (const msg of messages) {
-    try {
-      await handleInboundMessage(msg);
-    } catch (err) {
-      log.error({ err, wamid: msg.wamid }, "erro não tratado no processamento");
+  if (await isFeatureEnabled("marketing_whatsapp")) {
+    const messages = WhatsAppService.parseWebhook(payload);
+    for (const msg of messages) {
+      try {
+        await handleInboundMessage(msg);
+      } catch (err) {
+        log.error({ err, wamid: msg.wamid }, "erro não tratado no processamento");
+      }
     }
   }
 

@@ -11,6 +11,20 @@ import { ProductThumb } from "@/components/ProductThumb";
 import { RegisterExpirationFlow } from "./RegisterExpirationFlow";
 import { ExpirationList } from "./ExpirationList";
 import { CouponsManager, type CouponView } from "./CouponsManager";
+import { FEATURES, isFeatureEnabled } from "@/lib/features";
+
+function FeatureOff({ feature }: { feature: "products_expiration" | "products_coupons" }) {
+  return (
+    <>
+      <PageHeader title={FEATURES[feature].label} description="Esta funcionalidade está desativada." />
+      <EmptyState
+        icon="🚫"
+        title={`"${FEATURES[feature].label}" foi desativada pelo administrador do sistema`}
+        description="Fale com o administrador da AUTORA se acha que isso é um engano."
+      />
+    </>
+  );
+}
 
 function daysText(r: ExpirationRow): string {
   if (r.daysLeft < 0) return `venceu há ${Math.abs(r.daysLeft)} dia(s)`;
@@ -79,6 +93,7 @@ export default async function ProdutosPage({
   const sp = await searchParams;
 
   if (sp.view === "cupons") {
+    if (!(await isFeatureEnabled("products_coupons"))) return <FeatureOff feature="products_coupons" />;
     const coupons: CouponView[] = (
       await prisma.coupon.findMany({ where: { organizationId: org.id }, orderBy: { createdAt: "desc" }, take: 30 })
     ).map((c) => ({
@@ -103,6 +118,8 @@ export default async function ProdutosPage({
       </>
     );
   }
+
+  if (!(await isFeatureEnabled("products_expiration"))) return <FeatureOff feature="products_expiration" />;
 
   if (sp.view === "registrar") {
     return (

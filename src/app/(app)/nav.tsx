@@ -8,7 +8,14 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { Logo } from "@/components/Logo";
 import { signOut } from "@/app/session-actions";
 
-type NavItem = { href: string; label: string; icon: IconName; match?: (path: string, view: string | null) => boolean };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconName;
+  match?: (path: string, view: string | null) => boolean;
+  /** Some da sidebar quando esta chave (ver `src/lib/features.ts`) está desativada. */
+  feature?: "products_expiration" | "products_coupons" | "marketing_whatsapp";
+};
 /** Grupo simples = itens soltos. Grupo com `key`+`icon` = módulo que abre submenu ao clicar. */
 type NavGroup = { key?: string; label?: string; icon?: IconName; items: NavItem[] };
 
@@ -23,8 +30,20 @@ const GROUPS: NavGroup[] = [
     label: "Produtos",
     icon: "box",
     items: [
-      { href: "/produtos", label: "Validades", icon: "box", match: (p, v) => p.startsWith("/produtos") && v !== "cupons" },
-      { href: "/produtos?view=cupons", label: "Cupons", icon: "tag", match: (p, v) => p.startsWith("/produtos") && v === "cupons" },
+      {
+        href: "/produtos",
+        label: "Validades",
+        icon: "box",
+        match: (p, v) => p.startsWith("/produtos") && v !== "cupons",
+        feature: "products_expiration",
+      },
+      {
+        href: "/produtos?view=cupons",
+        label: "Cupons",
+        icon: "tag",
+        match: (p, v) => p.startsWith("/produtos") && v === "cupons",
+        feature: "products_coupons",
+      },
     ],
   },
   {
@@ -36,7 +55,13 @@ const GROUPS: NavGroup[] = [
       { href: "/calendario", label: "Calendário", icon: "calendar", match: (p, v) => p.startsWith("/calendario") && v !== "lista" },
       { href: "/biblioteca", label: "Biblioteca", icon: "media", match: (p) => p === "/biblioteca" },
       { href: "/automacoes", label: "Automações", icon: "automation", match: (p, v) => p.startsWith("/automacoes") && v !== "whatsapp" },
-      { href: "/automacoes?view=whatsapp", label: "WhatsApp", icon: "comment", match: (p, v) => p.startsWith("/automacoes") && v === "whatsapp" },
+      {
+        href: "/automacoes?view=whatsapp",
+        label: "WhatsApp",
+        icon: "comment",
+        match: (p, v) => p.startsWith("/automacoes") && v === "whatsapp",
+        feature: "marketing_whatsapp",
+      },
       { href: "/dashboard?view=desempenho", label: "Desempenho", icon: "chart", match: (p, v) => p === "/dashboard" && v === "desempenho" },
     ],
   },
@@ -59,11 +84,13 @@ export function Sidebar({
   orgHandle,
   paused,
   isSuperAdmin = false,
+  disabledFeatures = [],
 }: {
   orgName: string;
   orgHandle?: string | null;
   paused: boolean;
   isSuperAdmin?: boolean;
+  disabledFeatures?: string[];
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -120,9 +147,14 @@ export function Sidebar({
     </Link>
   );
 
+  const visibleGroups = GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((it) => !it.feature || !disabledFeatures.includes(it.feature)),
+  })).filter((g) => g.items.length > 0);
+
   const groups: NavGroup[] = isSuperAdmin
-    ? [...GROUPS.slice(0, -1), { items: [...GROUPS[GROUPS.length - 1].items, ADMIN_ITEM] }]
-    : GROUPS;
+    ? [...visibleGroups.slice(0, -1), { items: [...visibleGroups[visibleGroups.length - 1].items, ADMIN_ITEM] }]
+    : visibleGroups;
 
   const itemActive = (it: NavItem) =>
     it.match ? it.match(pathname, view) : pathname === it.href || pathname.startsWith(`${it.href}/`);

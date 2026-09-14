@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { adminAction } from "@/lib/auth/admin";
 import { notFound, validation } from "@/lib/errors";
+import { FEATURE_KEYS, revalidateFeatureFlags } from "@/lib/features";
 
 export const setOrgBlocked = adminAction(
   z.object({ orgId: z.string().min(1), blocked: z.boolean() }),
@@ -77,5 +78,23 @@ export const setUserSuperAdmin = adminAction(
     await prisma.user.update({ where: { id: input.userId }, data: { isSuperAdmin: input.value } });
     revalidatePath("/dashboard");
     return { value: input.value };
+  },
+);
+
+/** Liga/desliga uma funcionalidade para TODAS as empresas (interruptor global). */
+export const setFeatureFlag = adminAction(
+  z.object({
+    key: z.enum(FEATURE_KEYS as [string, ...string[]]),
+    enabled: z.boolean(),
+  }),
+  async (input) => {
+    await prisma.featureFlag.upsert({
+      where: { key: input.key },
+      update: { enabled: input.enabled },
+      create: { key: input.key, enabled: input.enabled },
+    });
+    revalidateFeatureFlags();
+    revalidatePath("/dashboard");
+    return { key: input.key, enabled: input.enabled };
   },
 );

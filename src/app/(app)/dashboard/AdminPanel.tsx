@@ -6,6 +6,8 @@ import { formatBytes } from "@/lib/utils";
 import { formatDateTime } from "@/lib/display";
 import { AdminOrgRow } from "./AdminOrgRow";
 import { AdminUserRow } from "./AdminUserRow";
+import { FeatureFlagRow, type FeatureFlagView } from "./FeatureFlagRow";
+import { FEATURES, FEATURE_KEYS, listFeatureFlags } from "@/lib/features";
 
 const MB = 1024 * 1024;
 
@@ -14,7 +16,7 @@ export async function AdminPanel() {
   const since30 = new Date();
   since30.setDate(since30.getDate() - 30);
 
-  const [orgs, users, storage, members, postStatus, published30, igAccounts] = await Promise.all([
+  const [orgs, users, storage, members, postStatus, published30, igAccounts, featureFlags] = await Promise.all([
     prisma.organization.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
@@ -25,7 +27,15 @@ export async function AdminPanel() {
     prisma.scheduledPost.groupBy({ by: ["organizationId", "status"], _count: { _all: true } }),
     prisma.scheduledPost.count({ where: { status: "PUBLISHED", publishedAt: { gte: since30 } } }),
     prisma.instagramAccount.findMany({ select: { organizationId: true, status: true, username: true } }),
+    listFeatureFlags(),
   ]);
+
+  const featureRows: FeatureFlagView[] = FEATURE_KEYS.map((key) => ({
+    key,
+    label: FEATURES[key].label,
+    description: FEATURES[key].description,
+    enabled: featureFlags[key],
+  }));
 
   const storageByOrg = new Map(storage.map((s) => [s.organizationId, s]));
   const membersByOrg = new Map(members.map((m) => [m.organizationId, m._count._all]));
@@ -104,6 +114,20 @@ export async function AdminPanel() {
             </Card>
           ))}
         </div>
+
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-[var(--color-muted)]">FUNCIONALIDADES</h2>
+          <p className="mb-2 text-xs text-[var(--color-muted)]">
+            Desativar aqui desliga a funcionalidade para todas as empresas do sistema de uma vez —
+            use em caso de bug, custo ou abuso. Não afeta empresas uma a uma (isso já existe em
+            &quot;Empresas&quot; abaixo, com o bloqueio individual).
+          </p>
+          <div className="rounded-[var(--radius)] border bg-[var(--color-surface)]">
+            {featureRows.map((f) => (
+              <FeatureFlagRow key={f.key} feature={f} />
+            ))}
+          </div>
+        </section>
 
         <section>
           <h2 className="mb-2 text-sm font-semibold text-[var(--color-muted)]">EMPRESAS</h2>

@@ -2,9 +2,11 @@ import Link from "next/link";
 import { requireOrgOrOnboarding } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/primitives";
 import { loadCategoryTree, formatPath } from "@/lib/categories";
 import { whatsappConfigured } from "@/lib/whatsapp/service";
 import { getWhatsAppHealth } from "@/lib/whatsapp/health";
+import { FEATURES, isFeatureEnabled } from "@/lib/features";
 import { AutomationsClient, type Automation } from "./AutomationsClient";
 import { WhatsAppMarketingPanel, type WhatsAppMarketingState } from "./WhatsAppMarketingPanel";
 
@@ -17,6 +19,18 @@ export default async function AutomacoesPage({
   const sp = await searchParams;
 
   if (sp.view === "whatsapp") {
+    if (!(await isFeatureEnabled("marketing_whatsapp"))) {
+      return (
+        <>
+          <PageHeader title={FEATURES.marketing_whatsapp.label} description="Esta funcionalidade está desativada." />
+          <EmptyState
+            icon="🚫"
+            title="WhatsApp foi desativado pelo administrador do sistema"
+            description="Fale com o administrador da AUTORA se acha que isso é um engano."
+          />
+        </>
+      );
+    }
     const configured = whatsappConfigured();
     const [health, contact] = configured
       ? await Promise.all([

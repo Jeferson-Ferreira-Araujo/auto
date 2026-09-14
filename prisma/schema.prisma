@@ -810,3 +810,13 @@ model AutomationRule {
   @@index([organizationId, trigger, active])
   @@map("automation_rules")
 }
+
+/// Interruptor global de funcionalidade, controlado só pelo SuperAdmin (Administração do
+/// sistema). `key` = uma das chaves em `src/lib/features.ts`. Ausente = habilitado (default).
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@map("feature_flags")
+}
