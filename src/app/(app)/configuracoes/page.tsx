@@ -30,6 +30,7 @@ export default async function ConfiguracoesPage({
   const mediaCount = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
 
   const whatsappEnabled = await isFeatureEnabled("marketing_whatsapp");
+  const musicEnabled = await isFeatureEnabled("marketing_video_music");
   const configured = whatsappEnabled && whatsappConfigured();
   const waContact = configured
     ? await prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } })
@@ -69,7 +70,7 @@ export default async function ConfiguracoesPage({
 
         <WatermarkUpload hasWatermark={Boolean(org.watermarkStorageKey)} />
 
-        <AutoMusicCard currentTrackId={org.autoMusicTrackId} />
+        {musicEnabled && <AutoMusicCard currentTrackId={org.autoMusicTrackId} />}
 
         {whatsappEnabled && <WhatsAppCard state={whatsappState} />}
 

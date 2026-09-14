@@ -2,6 +2,7 @@ import type { MusicMode, PostFormat, PostSource, PostStatus } from "@prisma/clie
 import { prisma } from "@/lib/db";
 import { AppError, conflict, notFound, validation } from "@/lib/errors";
 import { VideoProcessingService } from "@/lib/video/service";
+import { isFeatureEnabled } from "@/lib/features";
 
 /** Status em que uma publicação ainda pode ser editada/remarcada/cancelada. */
 export const EDITABLE_POST_STATUSES = ["DRAFT", "SCHEDULED", "FAILED"] as const;
@@ -56,6 +57,9 @@ export async function createScheduledPost(organizationId: string, input: CreateS
   // Trilha sonora — só para vídeo, formato AUTO ou STORY.
   let musicTrackId: string | null = null;
   if (input.musicTrackId && media.type === "VIDEO" && format !== "CAROUSEL") {
+    if (!(await isFeatureEnabled("marketing_video_music"))) {
+      throw validation("Trilha sonora está desativada pelo administrador do sistema.");
+    }
     const track = await prisma.audioTrack.findFirst({
       where: { id: input.musicTrackId, active: true, OR: [{ organizationId: null }, { organizationId }] },
       select: { id: true },

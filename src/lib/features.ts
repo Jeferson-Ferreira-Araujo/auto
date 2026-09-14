@@ -1,9 +1,9 @@
 import { unstable_cache, updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { validation } from "@/lib/errors";
-import { FEATURES, FEATURE_KEYS, type FeatureKey } from "@/lib/features-core";
+import { FEATURES, FEATURE_KEYS, featureChain, type FeatureKey } from "@/lib/features-core";
 
-export { FEATURES, FEATURE_KEYS, isFeatureEnabledRaw } from "@/lib/features-core";
+export { FEATURES, FEATURE_KEYS, featureParent, featureChain, isFeatureEnabledRaw } from "@/lib/features-core";
 export type { FeatureKey } from "@/lib/features-core";
 
 const FEATURE_FLAGS_TAG = "feature-flags";
@@ -17,10 +17,21 @@ const loadFlags = unstable_cache(
   { tags: [FEATURE_FLAGS_TAG], revalidate: 60 },
 );
 
-/** Estado de todas as chaves conhecidas (default `true` p/ chave nunca configurada). */
-export async function listFeatureFlags(): Promise<Record<FeatureKey, boolean>> {
+/**
+ * Estado OWN (sem herança do pai) de todas as chaves conhecidas — default `true` p/ chave nunca
+ * configurada. Use `listFeatureFlags` para o estado EFETIVO (já aplicando a herança do pai).
+ */
+async function ownFlags(): Promise<Record<FeatureKey, boolean>> {
   const stored = await loadFlags();
   return Object.fromEntries(FEATURE_KEYS.map((k) => [k, stored[k] ?? true])) as Record<FeatureKey, boolean>;
+}
+
+/** Estado EFETIVO de todas as chaves: um pai desligado desliga o filho junto. */
+export async function listFeatureFlags(): Promise<Record<FeatureKey, boolean>> {
+  const own = await ownFlags();
+  return Object.fromEntries(
+    FEATURE_KEYS.map((k) => [k, featureChain(k).every((anc) => own[anc])]),
+  ) as Record<FeatureKey, boolean>;
 }
 
 export async function isFeatureEnabled(key: FeatureKey): Promise<boolean> {

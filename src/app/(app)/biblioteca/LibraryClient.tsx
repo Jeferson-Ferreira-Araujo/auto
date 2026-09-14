@@ -50,11 +50,15 @@ export function LibraryClient({
   categories,
   orgHasLogo,
   orgHasWatermark,
+  canEnhanceVideo,
+  canWatermark,
 }: {
   items: MediaItem[];
   categories: Category[];
   orgHasLogo: boolean;
   orgHasWatermark: boolean;
+  canEnhanceVideo: boolean;
+  canWatermark: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [categoryId, setCategoryId] = useState<string>("");
@@ -130,6 +134,8 @@ export function LibraryClient({
           categories={categories}
           orgHasLogo={orgHasLogo}
           orgHasWatermark={orgHasWatermark}
+          canEnhanceVideo={canEnhanceVideo}
+          canWatermark={canWatermark}
           onClose={() => setEditing(null)}
         />
       )}
@@ -194,12 +200,16 @@ function EditModal({
   categories,
   orgHasLogo,
   orgHasWatermark,
+  canEnhanceVideo,
+  canWatermark,
   onClose,
 }: {
   item: MediaItem;
   categories: Category[];
   orgHasLogo: boolean;
   orgHasWatermark: boolean;
+  canEnhanceVideo: boolean;
+  canWatermark: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -294,11 +304,11 @@ function EditModal({
             <p className="mt-2 rounded bg-blue-50 p-2 text-xs text-blue-800">{item.processingNote}</p>
           )}
 
-          {item.type === "VIDEO" && item.processingStatus === "READY" && (
+          {canEnhanceVideo && item.type === "VIDEO" && item.processingStatus === "READY" && (
             <VideoEnhancer item={item} orgHasLogo={orgHasLogo} onChanged={() => router.refresh()} />
           )}
 
-          {item.processingStatus === "READY" && (
+          {canWatermark && item.processingStatus === "READY" && (
             <WatermarkPanel
               item={item}
               orgHasWatermark={orgHasWatermark}

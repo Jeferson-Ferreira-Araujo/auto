@@ -39,6 +39,7 @@ export type WhatsAppMarketingState = {
   outreachEnabled: boolean;
   promoMessage: string;
   health: WhatsAppHealthView | null;
+  promoFeatureEnabled: boolean;
 };
 
 export function WhatsAppMarketingPanel({ state }: { state: WhatsAppMarketingState }) {
@@ -124,58 +125,66 @@ export function WhatsAppMarketingPanel({ state }: { state: WhatsAppMarketingStat
             </p>
           )}
 
-          <label className="mt-4 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={state.outreachEnabled}
-              disabled={pending}
-              onChange={(e) => toggle(e.target.checked)}
-              className="h-4 w-4 rounded border-[var(--color-border)]"
-            />
-            <span>
-              Enviar mensagens de <strong>divulgação</strong> aos clientes
-              <span className="block text-xs text-[var(--color-muted)]">
-                Desligue aqui se a qualidade cair. Não afeta o atendimento (respostas continuam normais).
+          {state.promoFeatureEnabled ? (
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={state.outreachEnabled}
+                disabled={pending}
+                onChange={(e) => toggle(e.target.checked)}
+                className="h-4 w-4 rounded border-[var(--color-border)]"
+              />
+              <span>
+                Enviar mensagens de <strong>divulgação</strong> aos clientes
+                <span className="block text-xs text-[var(--color-muted)]">
+                  Desligue aqui se a qualidade cair. Não afeta o atendimento (respostas continuam normais).
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          ) : (
+            <p className="mt-4 text-xs text-[var(--color-muted)]">
+              🚫 Divulgação pós-pedido desativada pelo administrador do sistema.
+            </p>
+          )}
         </CardBody>
       </Card>
 
-      <Card>
-        <CardBody>
-          <h3 className="mb-1 font-medium">Mensagem da promoção</h3>
-          <p className="mb-2 text-sm text-[var(--color-muted)]">
-            Enviada na manhã seguinte a quem fez pedido e respondeu <strong>SIM</strong>. Deixe em branco para não
-            enviar nada. O “responda SAIR para não receber mais” é adicionado automaticamente. Escreva{" "}
-            <code className="rounded bg-[var(--color-bg)] px-1">{"{cupom}"}</code> para inserir o cupom ativo
-            (crie cupons em <Link href="/produtos?view=cupons" className="text-[var(--color-primary)]">Produtos</Link>).
-          </p>
-          <textarea
-            value={msg}
-            onChange={(e) => setMsg(e.target.value)}
-            rows={3}
-            maxLength={900}
-            placeholder="Ex.: Bom dia! 🥐 Hoje o bolo de fubá está saindo quentinho. Peça o seu!"
-            className="w-full rounded-[var(--radius)] border bg-[var(--color-surface)] p-2 text-sm"
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <Button size="sm" onClick={saveMsg} disabled={pending || msg === state.promoMessage}>
-              Salvar mensagem
-            </Button>
-            {!state.promoMessage && (
-              <span className="text-xs text-[var(--color-muted)]">divulgação inativa (sem mensagem)</span>
-            )}
-          </div>
+      {state.promoFeatureEnabled && (
+        <Card>
+          <CardBody>
+            <h3 className="mb-1 font-medium">Mensagem da promoção</h3>
+            <p className="mb-2 text-sm text-[var(--color-muted)]">
+              Enviada na manhã seguinte a quem fez pedido e respondeu <strong>SIM</strong>. Deixe em branco para não
+              enviar nada. O “responda SAIR para não receber mais” é adicionado automaticamente. Escreva{" "}
+              <code className="rounded bg-[var(--color-bg)] px-1">{"{cupom}"}</code> para inserir o cupom ativo
+              (crie cupons em <Link href="/produtos?view=cupons" className="text-[var(--color-primary)]">Produtos</Link>).
+            </p>
+            <textarea
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              rows={3}
+              maxLength={900}
+              placeholder="Ex.: Bom dia! 🥐 Hoje o bolo de fubá está saindo quentinho. Peça o seu!"
+              className="w-full rounded-[var(--radius)] border bg-[var(--color-surface)] p-2 text-sm"
+            />
+            <div className="mt-2 flex items-center gap-2">
+              <Button size="sm" onClick={saveMsg} disabled={pending || msg === state.promoMessage}>
+                Salvar mensagem
+              </Button>
+              {!state.promoMessage && (
+                <span className="text-xs text-[var(--color-muted)]">divulgação inativa (sem mensagem)</span>
+              )}
+            </div>
 
-          <p className="mt-3 rounded-md bg-[var(--color-primary-soft)] px-2 py-1.5 text-xs text-[var(--color-primary)]">
-            Como funciona: a atendente confirma o pedido normalmente e envia{" "}
-            <code className="rounded bg-white/60 px-1">pedido 11999998888</code> (opcional: valor e{" "}
-            <code className="rounded bg-white/60 px-1">cupom CODIGO</code>) no WhatsApp da AUTORA. A AUTORA registra
-            e pede o consentimento ao cliente.
-          </p>
-        </CardBody>
-      </Card>
+            <p className="mt-3 rounded-md bg-[var(--color-primary-soft)] px-2 py-1.5 text-xs text-[var(--color-primary)]">
+              Como funciona: a atendente confirma o pedido normalmente e envia{" "}
+              <code className="rounded bg-white/60 px-1">pedido 11999998888</code> (opcional: valor e{" "}
+              <code className="rounded bg-white/60 px-1">cupom CODIGO</code>) no WhatsApp da AUTORA. A AUTORA registra
+              e pede o consentimento ao cliente.
+            </p>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }

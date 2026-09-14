@@ -8,6 +8,7 @@ import { notFound, validation } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage/r2";
 import { confirmAudioTrackSchema } from "@/lib/validation/schemas";
 import { listAudioTracks } from "@/lib/audio/tracks";
+import { requireFeatureEnabled } from "@/lib/features";
 
 export const getAudioTracks = orgAction(z.object({}), async (_input, { org }) => {
   return { tracks: await listAudioTracks(org.id) };
@@ -17,6 +18,7 @@ export const getAudioTracks = orgAction(z.object({}), async (_input, { org }) =>
 export const setAutoMusic = orgAction(
   z.object({ trackId: z.string().min(1).nullable() }),
   async (input, { org }) => {
+    await requireFeatureEnabled("marketing_video_music");
     if (input.trackId) {
       const ok = await prisma.audioTrack.findFirst({
         where: { id: input.trackId, active: true, OR: [{ organizationId: null }, { organizationId: org.id }] },
@@ -31,6 +33,7 @@ export const setAutoMusic = orgAction(
 );
 
 export const confirmAudioTrack = orgAction(confirmAudioTrackSchema, async (input, { org, user }) => {
+  await requireFeatureEnabled("marketing_video_music");
   if (!input.storageKey.startsWith(`org/${org.id}/audio/`)) {
     throw validation("Chave de upload inválida.");
   }

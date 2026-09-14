@@ -8,6 +8,7 @@ import { Uploader } from "./Uploader";
 import { VideoMerger } from "./VideoMerger";
 import { LibraryClient, type MediaItem } from "./LibraryClient";
 import { CategoriesClient } from "../categorias/CategoriesClient";
+import { isFeatureEnabled } from "@/lib/features";
 
 function Tabs({ view }: { view: "midia" | "categorias" }) {
   const tab = (href: string, label: string, active: boolean) => (
@@ -53,12 +54,15 @@ export default async function BibliotecaPage({
     );
   }
 
-  const [assets, tree] = await Promise.all([
+  const [assets, tree, enhanceEnabled, mergeEnabled, watermarkFeatureEnabled] = await Promise.all([
     prisma.mediaAsset.findMany({
       where: { organizationId: org.id },
       orderBy: { createdAt: "desc" },
     }),
     loadCategoryTree(org.id),
+    isFeatureEnabled("marketing_video_enhance"),
+    isFeatureEnabled("marketing_video_merge"),
+    isFeatureEnabled("marketing_video_watermark"),
   ]);
 
   const pathById = new Map(tree.map((n) => [n.id, formatPath(n.path)]));
@@ -100,13 +104,15 @@ export default async function BibliotecaPage({
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Uploader />
-          <VideoMerger />
+          {mergeEnabled && <VideoMerger />}
         </div>
         <LibraryClient
           items={items}
           categories={categories}
           orgHasLogo={Boolean(org.logoStorageKey)}
           orgHasWatermark={Boolean(org.watermarkStorageKey)}
+          canEnhanceVideo={enhanceEnabled}
+          canWatermark={watermarkFeatureEnabled}
         />
       </div>
     </>

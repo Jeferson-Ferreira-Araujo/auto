@@ -17,6 +17,7 @@ import { childLogger } from "@/lib/logger";
 import { toE164 } from "./link";
 import { WhatsAppService } from "./service";
 import { getWhatsAppHealth } from "./health";
+import { isFeatureEnabledRaw } from "@/lib/features-core";
 
 const log = childLogger({ mod: "whatsapp/promo" });
 
@@ -107,6 +108,9 @@ export async function registerDeliveryOrder(
   | { ok: true; customerPhone: string; asked: boolean; status: "asked" | "send_failed" | "already_in" | "opted_out" }
   | { ok: false; error: string }
 > {
+  if (!(await isFeatureEnabledRaw("marketing_whatsapp_promo"))) {
+    return { ok: false, error: "Divulgação pós-pedido está desativada pelo administrador do sistema." };
+  }
   const phoneE164 = toE164(input.phoneRaw);
   if (!phoneE164) return { ok: false, error: "Telefone inválido. Use com DDD, ex.: pedido 11999998888" };
 
@@ -162,6 +166,7 @@ export async function handleCustomerConsentReply(
   phoneE164: string,
   text: string,
 ): Promise<{ handled: boolean; reply?: string }> {
+  if (!(await isFeatureEnabledRaw("marketing_whatsapp_promo"))) return { handled: false };
   const customer = await prisma.whatsAppCustomer.findFirst({
     where: { phoneE164 },
     orderBy: { promoAskedAt: "desc" },

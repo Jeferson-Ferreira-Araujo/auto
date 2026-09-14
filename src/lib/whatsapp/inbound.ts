@@ -12,6 +12,7 @@ import { receiveWhatsAppMedia, WhatsAppMediaError } from "./media";
 import { executeCommand, applyPending } from "./executor";
 import { formatResult } from "./format";
 import { handleCustomerConsentReply } from "./promo";
+import { isFeatureEnabled } from "@/lib/features";
 import type { IncomingMessage, OutgoingMessage, ParsedCommand, PendingAction } from "./types";
 
 const log = childLogger({ mod: "whatsapp/inbound" });
@@ -105,6 +106,18 @@ export async function handleInboundMessage(msg: IncomingMessage): Promise<void> 
     await prisma.whatsAppContact.update({ where: { id: contact.id }, data: { lastInboundAt: new Date() } });
     const org = contact.organization;
     const tz = org.timezone;
+
+    if (!(await isFeatureEnabled("marketing_whatsapp_commands"))) {
+      await sendOutcome(
+        phoneE164,
+        msg,
+        { kind: "text", text: "🚫 Os comandos automáticos por WhatsApp estão temporariamente desativados. Use o site da AUTORA." },
+        parsedForLog,
+        "IGNORED",
+      );
+      return;
+    }
+
     const pending = readPending(contact);
 
     const interactiveId = msg.type === "interactive" ? msg.interactiveId : null;

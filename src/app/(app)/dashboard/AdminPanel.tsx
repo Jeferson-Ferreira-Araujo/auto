@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/display";
 import { AdminOrgRow } from "./AdminOrgRow";
 import { AdminUserRow } from "./AdminUserRow";
 import { FeatureFlagRow, type FeatureFlagView } from "./FeatureFlagRow";
-import { FEATURES, FEATURE_KEYS, listFeatureFlags } from "@/lib/features";
+import { FEATURES, FEATURE_KEYS, featureChain, featureParent, type FeatureKey } from "@/lib/features";
 
 const MB = 1024 * 1024;
 
@@ -16,7 +16,7 @@ export async function AdminPanel() {
   const since30 = new Date();
   since30.setDate(since30.getDate() - 30);
 
-  const [orgs, users, storage, members, postStatus, published30, igAccounts, featureFlags] = await Promise.all([
+  const [orgs, users, storage, members, postStatus, published30, igAccounts, featureFlagRows] = await Promise.all([
     prisma.organization.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
@@ -27,15 +27,51 @@ export async function AdminPanel() {
     prisma.scheduledPost.groupBy({ by: ["organizationId", "status"], _count: { _all: true } }),
     prisma.scheduledPost.count({ where: { status: "PUBLISHED", publishedAt: { gte: since30 } } }),
     prisma.instagramAccount.findMany({ select: { organizationId: true, status: true, username: true } }),
-    listFeatureFlags(),
+    // Estado bruto (não cacheado) direto do banco — o painel precisa refletir o toggle na hora.
+    prisma.featureFlag.findMany(),
   ]);
 
-  const featureRows: FeatureFlagView[] = FEATURE_KEYS.map((key) => ({
-    key,
-    label: FEATURES[key].label,
-    description: FEATURES[key].description,
-    enabled: featureFlags[key],
-  }));
+  const ownEnabled = new Map(featureFlagRows.map((r) => [r.key, r.enabled]));
+  const own = (key: FeatureKey) => ownEnabled.get(key) ?? true;
+  const effective = (key: FeatureKey) => featureChain(key).every(own);
+
+  // Agrupa por categoria de exibição, item-pai seguido dos filhos, na ordem do registro.
+  const groupOrder: string[] = [];
+  const groups = new Map<string, FeatureKey[]>();
+  for (const key of FEATURE_KEYS) {
+    const g = FEATURES[key].group;
+    if (!groups.has(g)) {
+      groups.set(g, []);
+      groupOrder.push(g);
+    }
+    groups.get(g)!.push(key);
+  }
+
+  const featureRowsByGroup = groupOrder.map((group) => {
+    const keys = groups.get(group)!;
+    const topLevel = keys.filter((k) => !featureParent(k));
+    const ordered: FeatureFlagView[] = [];
+    for (const parentKey of topLevel) {
+      ordered.push({
+        key: parentKey,
+        label: FEATURES[parentKey].label,
+        description: FEATURES[parentKey].description,
+        ownEnabled: own(parentKey),
+        disabledByParent: false,
+      });
+      for (const childKey of keys.filter((k) => featureParent(k) === parentKey)) {
+        ordered.push({
+          key: childKey,
+          label: FEATURES[childKey].label,
+          description: FEATURES[childKey].description,
+          ownEnabled: own(childKey),
+          disabledByParent: !effective(parentKey),
+          nested: true,
+        });
+      }
+    }
+    return { group, rows: ordered };
+  });
 
   const storageByOrg = new Map(storage.map((s) => [s.organizationId, s]));
   const membersByOrg = new Map(members.map((m) => [m.organizationId, m._count._all]));
@@ -122,9 +158,18 @@ export async function AdminPanel() {
             use em caso de bug, custo ou abuso. Não afeta empresas uma a uma (isso já existe em
             &quot;Empresas&quot; abaixo, com o bloqueio individual).
           </p>
-          <div className="rounded-[var(--radius)] border bg-[var(--color-surface)]">
-            {featureRows.map((f) => (
-              <FeatureFlagRow key={f.key} feature={f} />
+          <div className="space-y-4">
+            {featureRowsByGroup.map(({ group, rows }) => (
+              <div key={group}>
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+                  {group}
+                </h3>
+                <div className="rounded-[var(--radius)] border bg-[var(--color-surface)]">
+                  {rows.map((f) => (
+                    <FeatureFlagRow key={f.key} feature={f} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </section>

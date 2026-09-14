@@ -9,7 +9,7 @@ import { requireFeatureEnabled } from "@/lib/features";
 export const setWhatsappOutreach = orgAction(
   z.object({ enabled: z.boolean() }),
   async (input, { org }) => {
-    await requireFeatureEnabled("marketing_whatsapp");
+    await requireFeatureEnabled("marketing_whatsapp_promo");
     await prisma.organization.update({
       where: { id: org.id },
       data: { whatsappOutreachEnabled: input.enabled },
@@ -22,7 +22,7 @@ export const setWhatsappOutreach = orgAction(
 export const setWhatsappPromoMessage = orgAction(
   z.object({ message: z.string().trim().max(900) }),
   async (input, { org }) => {
-    await requireFeatureEnabled("marketing_whatsapp");
+    await requireFeatureEnabled("marketing_whatsapp_promo");
     await prisma.organization.update({
       where: { id: org.id },
       data: { whatsappPromoMessage: input.message.length ? input.message : null },

@@ -32,21 +32,23 @@ export default async function AutomacoesPage({
       );
     }
     const configured = whatsappConfigured();
-    const [health, contact] = configured
+    const [health, contact, promoFeatureEnabled] = configured
       ? await Promise.all([
           getWhatsAppHealth(),
           prisma.whatsAppContact.findFirst({
             where: { organizationId: org.id },
             select: { verifiedAt: true },
           }),
+          isFeatureEnabled("marketing_whatsapp_promo"),
         ])
-      : [null, null];
+      : [null, null, false];
     const state: WhatsAppMarketingState = {
       configured,
       connected: Boolean(contact?.verifiedAt),
       outreachEnabled: org.whatsappOutreachEnabled,
       promoMessage: org.whatsappPromoMessage ?? "",
       health,
+      promoFeatureEnabled,
     };
     return (
       <>

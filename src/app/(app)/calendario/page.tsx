@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { CalendarClient, type CalPost, type PickMedia } from "./CalendarClient";
 import { HistoryView, type HistoryFilters } from "./HistoryView";
 import { listAudioTracks } from "@/lib/audio/tracks";
+import { isFeatureEnabled } from "@/lib/features";
 
 function monthRange(monthParam?: string) {
   const now = new Date();
@@ -34,7 +35,7 @@ export default async function CalendarioPage({
   const windowStart = new Date(start.getTime() - 8 * 86400000);
   const windowEnd = new Date(end.getTime() + 8 * 86400000);
 
-  const [posts, accounts, media, audioTracks] = await Promise.all([
+  const [posts, accounts, media, audioTracks, musicEnabled] = await Promise.all([
     prisma.scheduledPost.findMany({
       where: { organizationId: org.id, scheduledAt: { gte: windowStart, lte: windowEnd } },
       include: {
@@ -54,6 +55,7 @@ export default async function CalendarioPage({
       orderBy: { createdAt: "desc" },
     }),
     listAudioTracks(org.id),
+    isFeatureEnabled("marketing_video_music"),
   ]);
 
   const calPosts: CalPost[] = posts.map((p) => ({
@@ -84,8 +86,8 @@ export default async function CalendarioPage({
         posts={calPosts}
         accounts={accounts}
         media={pickMedia}
-        audioTracks={audioTracks}
-        suggestedTrackId={org.autoMusicTrackId ?? null}
+        audioTracks={musicEnabled ? audioTracks : []}
+        suggestedTrackId={musicEnabled ? (org.autoMusicTrackId ?? null) : null}
         timezone={org.timezone}
       />
     </>

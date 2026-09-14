@@ -5,6 +5,7 @@ import { AppError, notFound, validation } from "@/lib/errors-core";
 import { deleteObject } from "@/lib/storage/r2";
 import { autoPickPreset, type PresetName } from "./presets";
 import { dispatchWorker } from "./dispatch";
+import { requireFeatureEnabledRaw } from "@/lib/features-core";
 
 const log = childLogger({ mod: "video/service" });
 
@@ -25,6 +26,7 @@ export const VideoProcessingService = {
       stripAudio?: boolean;
     },
   ) {
+    await requireFeatureEnabledRaw("marketing_video_enhance");
     const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
     if (!media) throw notFound("Vídeo não encontrado");
     if (media.type !== "VIDEO") throw validation("Só é possível melhorar vídeos.");
@@ -74,6 +76,7 @@ export const VideoProcessingService = {
     organizationId: string,
     input: { inputStorageKeys: string[]; name?: string | null; timezone?: string },
   ) {
+    await requireFeatureEnabledRaw("marketing_video_merge");
     const keys = input.inputStorageKeys;
     if (keys.length < MERGE_MIN || keys.length > MERGE_MAX) {
       throw validation(`Escolha de ${MERGE_MIN} a ${MERGE_MAX} vídeos para juntar.`);
@@ -144,6 +147,7 @@ export const VideoProcessingService = {
    * A imagem da marca e os parâmetros (posição/tamanho/opacidade) vêm de `media_assets`/`organizations`.
    */
   async requestWatermark(organizationId: string, mediaAssetId: string) {
+    await requireFeatureEnabledRaw("marketing_video_watermark");
     const [media, org] = await Promise.all([
       prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } }),
       prisma.organization.findUniqueOrThrow({ where: { id: organizationId } }),
@@ -177,6 +181,7 @@ export const VideoProcessingService = {
 
   /** Cria/recria o job ADD_MUSIC de uma PUBLICAÇÃO (trilha escolhida ao agendar). */
   async requestPostMusic(organizationId: string, scheduledPostId: string) {
+    await requireFeatureEnabledRaw("marketing_video_music");
     const post = await prisma.scheduledPost.findFirst({
       where: { id: scheduledPostId, organizationId },
       include: { mediaAsset: { select: { type: true } } },
