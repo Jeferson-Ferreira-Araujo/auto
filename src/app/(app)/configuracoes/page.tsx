@@ -10,6 +10,7 @@ import { LogoUpload } from "./LogoUpload";
 import { WatermarkUpload } from "./WatermarkUpload";
 import { AutoMusicCard } from "./AutoMusicCard";
 import { InstagramPanel } from "./InstagramPanel";
+import { ChangePasswordCard } from "./ChangePasswordCard";
 import { isFeatureEnabled } from "@/lib/features";
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dono", ADMIN: "Administrador", MEMBER: "Membro" };
@@ -86,6 +87,8 @@ export default async function ConfiguracoesPage({
             </p>
           </CardBody>
         </Card>
+
+        <ChangePasswordCard userEmail={user.email} />
 
         <Card>
           <CardBody>

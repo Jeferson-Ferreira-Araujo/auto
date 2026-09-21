@@ -45,7 +45,7 @@ export default async function BibliotecaPage({
     return (
       <>
         <PageHeader
-          title="Biblioteca"
+          title="Mídias"
           description="Organize suas mídias em grupos e subgrupos livres (ex.: Produtos › Pizzas › Frango). As automações e o WhatsApp usam essa estrutura para escolher o que publicar."
         />
         <Tabs view="categorias" />
@@ -99,7 +99,7 @@ export default async function BibliotecaPage({
 
   return (
     <>
-      <PageHeader title="Biblioteca" description={`${items.length} mídia(s) · limite de ${org.mediaLimit}`} />
+      <PageHeader title="Mídias" description={`${items.length} mídia(s) · limite de ${org.mediaLimit}`} />
       <Tabs view="midia" />
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

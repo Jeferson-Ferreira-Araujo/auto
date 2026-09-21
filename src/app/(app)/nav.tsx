@@ -23,6 +23,7 @@ const GROUPS: NavGroup[] = [
   {
     items: [
       { href: "/dashboard", label: "Início", icon: "home", match: (p, v) => p === "/dashboard" && !v },
+      { href: "/biblioteca", label: "Mídias", icon: "media", match: (p) => p === "/biblioteca" },
     ],
   },
   {
@@ -53,7 +54,6 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/calendario?view=lista", label: "Publicações", icon: "posts", match: (p, v) => p.startsWith("/calendario") && v === "lista" },
       { href: "/calendario", label: "Calendário", icon: "calendar", match: (p, v) => p.startsWith("/calendario") && v !== "lista" },
-      { href: "/biblioteca", label: "Biblioteca", icon: "media", match: (p) => p === "/biblioteca" },
       { href: "/automacoes", label: "Automações", icon: "automation", match: (p, v) => p.startsWith("/automacoes") && v !== "whatsapp" },
       {
         href: "/automacoes?view=whatsapp",

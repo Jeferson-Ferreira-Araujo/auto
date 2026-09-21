@@ -17,8 +17,12 @@ export default function RecoverPasswordPage() {
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
     // Não revelamos se o e-mail existe — sempre mostramos a mesma confirmação.
+    // Vai direto pra /nova-senha (não passa por /auth/callback): o link de recuperação
+    // do Supabase costuma entregar a sessão no FRAGMENTO da URL (#access_token=...),
+    // que só o navegador consegue ler — uma rota de servidor no meio perderia esse
+    // pedaço antes da página conseguir processá-lo.
     await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${publicEnv.appUrl}/auth/callback?next=/nova-senha`,
+      redirectTo: `${publicEnv.appUrl}/nova-senha`,
     });
     setLoading(false);
     setSent(true);

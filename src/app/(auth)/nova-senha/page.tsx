@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { passwordError } from "@/lib/auth/password";
 import { PasswordChecklist } from "@/components/PasswordChecklist";
@@ -11,8 +11,38 @@ import { Card, CardBody, Field, Input } from "@/components/ui/primitives";
 
 type Status = "checking" | "ready" | "invalid";
 
+/**
+ * O link do e-mail de redefinição chega de um destes jeitos (depende da configuração do
+ * projeto no Supabase), e este componente cobre os três:
+ *  1. `#access_token=...&type=recovery` no FRAGMENTO da URL — o SDK do navegador
+ *     (`detectSessionInUrl`, ligado por padrão) já cria a sessão sozinho antes de rodar
+ *     nosso código; só precisamos chamar `getSession()`.
+ *  2. `?code=...` — trocamos por sessão com `exchangeCodeForSession`.
+ *  3. `?token_hash=...&type=recovery` — trocamos com `verifyOtp`.
+ * Se o Supabase mandou de volta um erro (link expirado/já usado), vem como
+ * `?error=...&error_description=...` — mostramos direto sem tentar nada.
+ */
 export default function NewPasswordPage() {
+  return (
+    <Suspense fallback={<CheckingCard />}>
+      <NewPasswordForm />
+    </Suspense>
+  );
+}
+
+function CheckingCard() {
+  return (
+    <Card>
+      <CardBody>
+        <p className="text-sm text-[var(--color-muted)]">Verificando o link…</p>
+      </CardBody>
+    </Card>
+  );
+}
+
+function NewPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<Status>("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -22,9 +52,37 @@ export default function NewPasswordPage() {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getSession().then(({ data }) => {
+
+    async function resolveSession() {
+      const errorDescription = searchParams.get("error_description");
+      if (errorDescription) {
+        setStatus("invalid");
+        return;
+      }
+
+      const code = searchParams.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        setStatus(error ? "invalid" : "ready");
+        return;
+      }
+
+      const tokenHash = searchParams.get("token_hash");
+      const type = searchParams.get("type");
+      if (tokenHash && type === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+        setStatus(error ? "invalid" : "ready");
+        return;
+      }
+
+      // Nenhum parâmetro na URL — ou o SDK já processou o fragmento (#access_token=...)
+      // sozinho, ou não tem sessão mesmo.
+      const { data } = await supabase.auth.getSession();
       setStatus(data.session ? "ready" : "invalid");
-    });
+    }
+
+    resolveSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
