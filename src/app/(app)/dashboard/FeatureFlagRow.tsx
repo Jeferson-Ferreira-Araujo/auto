@@ -1,7 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { setFeatureFlag } from "./admin-actions";
 import type { FeatureKey } from "@/lib/features";
@@ -22,16 +24,24 @@ export function FeatureFlagRow({ feature }: { feature: FeatureFlagView }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, start] = useTransition();
+  const [confirming, setConfirming] = useState(false);
 
-  function toggle() {
-    const next = !feature.ownEnabled;
-    if (!next && !confirm(`Desativar "${feature.label}" para TODAS as empresas do sistema?`)) return;
+  function apply(next: boolean) {
     start(async () => {
       const res = await setFeatureFlag({ key: feature.key, enabled: next });
       if (!res.ok) return toast.push(res.error.message, "error");
       toast.push(next ? `"${feature.label}" ativada` : `"${feature.label}" desativada`, "success");
+      setConfirming(false);
       router.refresh();
     });
+  }
+
+  function requestToggle() {
+    if (feature.ownEnabled) {
+      setConfirming(true); // desligar precisa de confirmação — afeta todas as empresas
+    } else {
+      apply(true);
+    }
   }
 
   const effectivelyOn = feature.ownEnabled && !feature.disabledByParent;
@@ -61,23 +71,38 @@ export function FeatureFlagRow({ feature }: { feature: FeatureFlagView }) {
         </div>
         <p className="mt-0.5 text-xs text-[var(--color-muted)]">{feature.description}</p>
       </div>
+
       <button
         type="button"
         role="switch"
         aria-checked={feature.ownEnabled}
-        onClick={toggle}
+        onClick={requestToggle}
         disabled={pending || feature.disabledByParent}
         title={feature.disabledByParent ? "Ligue a categoria acima para controlar isto" : undefined}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-          feature.ownEnabled ? "bg-[var(--color-primary)]" : "bg-[var(--color-border)]"
-        } disabled:opacity-40`}
+        className={`flex h-6 w-11 shrink-0 items-center rounded-full border p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          feature.ownEnabled
+            ? "justify-end border-[var(--color-primary)] bg-[var(--color-primary)]"
+            : "justify-start border-[var(--color-border)] bg-[var(--color-border)]"
+        }`}
       >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            feature.ownEnabled ? "translate-x-[22px]" : "translate-x-0.5"
-          }`}
-        />
+        <span className="h-4 w-4 rounded-full bg-white shadow" />
       </button>
+
+      <Modal open={confirming} onClose={() => setConfirming(false)} title="Desativar funcionalidade">
+        <p className="text-sm">
+          Desativar <strong>&quot;{feature.label}&quot;</strong> para <strong>todas as empresas</strong> do sistema
+          agora?
+        </p>
+        <p className="mt-1 text-xs text-[var(--color-muted)]">{feature.description}</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirming(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={() => apply(false)} disabled={pending}>
+            {pending ? "Desativando…" : "Desativar"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

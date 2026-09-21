@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatTime, formatDateTime } from "@/lib/display";
 import { MediaThumb } from "@/components/MediaThumb";
+import { cn } from "@/lib/utils";
 import { cancelScheduledPost, createManualPost, updateScheduledPost } from "./actions";
 
 export type CalPost = {
@@ -480,14 +481,41 @@ function NewPost({
           <option value="CAROUSEL">Carrossel</option>
         </Select>
       </Field>
-      <Field label={format === "CAROUSEL" ? "Primeira mídia (capa)" : "Mídia"}>
-        <Select value={mediaId} onChange={(e) => onMediaChange(e.target.value)}>
+      <Field
+        label={format === "CAROUSEL" ? "Primeira mídia (capa)" : "Mídia"}
+        hint="Escolha qual mídia da biblioteca você quer publicar."
+      >
+        <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto rounded-[var(--radius)] border p-2 sm:grid-cols-5">
           {media.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.type === "VIDEO" ? "🎬" : "🖼"} {m.name}
-            </option>
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onMediaChange(m.id)}
+              title={m.name}
+              className={cn(
+                "relative aspect-square overflow-hidden rounded-[calc(var(--radius)-4px)] border-2 bg-[var(--color-bg)]",
+                m.id === mediaId
+                  ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30"
+                  : "border-transparent hover:border-[var(--color-border)]",
+              )}
+            >
+              <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
+              {m.type === "VIDEO" && (
+                <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
+                  🎬
+                </span>
+              )}
+              {m.id === mediaId && (
+                <span className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
+                  ✓
+                </span>
+              )}
+            </button>
           ))}
-        </Select>
+        </div>
+        <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
+          {media.find((m) => m.id === mediaId)?.name ?? "Nenhuma mídia selecionada"}
+        </p>
       </Field>
       {format === "CAROUSEL" && (
         <Field
