@@ -420,6 +420,7 @@ function NewPost({
   const suggested = suggestedTrackId && audioTracks.some((t) => t.id === suggestedTrackId) ? suggestedTrackId : "";
   const [musicTrackId, setMusicTrackId] = useState<string>(suggested);
   const [musicMode, setMusicMode] = useState<"MIX" | "MUSIC_ONLY">("MIX");
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<"ALL" | "IMAGE" | "VIDEO">("ALL");
 
   function onMediaChange(id: string) {
     setMediaId(id);
@@ -428,6 +429,9 @@ function NewPost({
     setCaption(m?.caption ?? "");
   }
 
+  const visibleMedia = media.filter((m) => mediaTypeFilter === "ALL" || m.type === mediaTypeFilter);
+  const photoCount = media.filter((m) => m.type === "IMAGE").length;
+  const videoCount = media.filter((m) => m.type === "VIDEO").length;
   const selectedMedia = media.find((m) => m.id === mediaId);
   const showMusic = selectedMedia?.type === "VIDEO" && format !== "CAROUSEL" && audioTracks.length > 0;
   const carouselTotal = 1 + extraIds.length;
@@ -485,34 +489,63 @@ function NewPost({
         label={format === "CAROUSEL" ? "Primeira mídia (capa)" : "Mídia"}
         hint="Escolha qual mídia da biblioteca você quer publicar."
       >
-        <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto rounded-[var(--radius)] border p-2 sm:grid-cols-5">
-          {media.map((m) => (
+        <div className="mb-2 flex gap-1">
+          {(
+            [
+              ["ALL", `Todas (${media.length})`],
+              ["IMAGE", `Fotos (${photoCount})`],
+              ["VIDEO", `Vídeos (${videoCount})`],
+            ] as const
+          ).map(([value, label]) => (
             <button
-              key={m.id}
+              key={value}
               type="button"
-              onClick={() => onMediaChange(m.id)}
-              title={m.name}
+              onClick={() => setMediaTypeFilter(value)}
               className={cn(
-                "relative aspect-square overflow-hidden rounded-[calc(var(--radius)-4px)] border-2 bg-[var(--color-bg)]",
-                m.id === mediaId
-                  ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30"
-                  : "border-transparent hover:border-[var(--color-border)]",
+                "rounded-full px-3 py-1 text-xs font-medium",
+                mediaTypeFilter === value
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-[var(--color-bg)] text-[var(--color-muted)] hover:bg-black/[0.04]",
               )}
             >
-              <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
-              {m.type === "VIDEO" && (
-                <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
-                  🎬
-                </span>
-              )}
-              {m.id === mediaId && (
-                <span className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
-                  ✓
-                </span>
-              )}
+              {label}
             </button>
           ))}
         </div>
+        {visibleMedia.length === 0 ? (
+          <p className="rounded-[var(--radius)] border border-dashed p-4 text-center text-sm text-[var(--color-muted)]">
+            Nenhuma {mediaTypeFilter === "IMAGE" ? "foto" : "vídeo"} disponível.
+          </p>
+        ) : (
+          <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto rounded-[var(--radius)] border p-2 sm:grid-cols-5">
+            {visibleMedia.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onMediaChange(m.id)}
+                title={m.name}
+                className={cn(
+                  "relative aspect-square overflow-hidden rounded-[calc(var(--radius)-4px)] border-2 bg-[var(--color-bg)]",
+                  m.id === mediaId
+                    ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30"
+                    : "border-transparent hover:border-[var(--color-border)]",
+                )}
+              >
+                <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
+                {m.type === "VIDEO" && (
+                  <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
+                    🎬
+                  </span>
+                )}
+                {m.id === mediaId && (
+                  <span className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
           {media.find((m) => m.id === mediaId)?.name ?? "Nenhuma mídia selecionada"}
         </p>
