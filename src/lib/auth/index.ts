@@ -57,12 +57,18 @@ export const requireUser = cache(async (): Promise<SessionUser> => {
   });
   if (existing) return existing;
 
-  return prisma.user.create({
-    data: {
+  // `upsert` (não `create`) — logo após o cadastro, o navegador dispara
+  // `router.push` + `router.refresh()` em sequência, que podem chegar ao
+  // servidor quase juntos e disputar a criação da mesma linha; `create` puro
+  // lançaria "unique constraint failed" pro perdedor da corrida.
+  return prisma.user.upsert({
+    where: { id: user.id },
+    create: {
       id: user.id,
       email: user.email,
       name: (user.user_metadata?.name as string | undefined) ?? null,
     },
+    update: {},
     select: USER_SELECT,
   });
 });
