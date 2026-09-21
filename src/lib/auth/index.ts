@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Organization, OrganizationMember } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -30,6 +30,19 @@ const USER_SELECT = {
  * Memoizado por request (`cache`) — chamado várias vezes por página sem custo extra.
  */
 export const requireUser = cache(async (): Promise<SessionUser> => {
+  // O middleware (`src/lib/supabase/middleware.ts`) já validou a sessão via
+  // getUser() antes de chegar aqui e repassa a identidade por header — usar
+  // isso evita uma 2ª ida à rede pro Auth do Supabase em toda navegação.
+  // Só é confiável porque o proxy roda ANTES de toda página/action (ele
+  // sobrescreve qualquer header que o próprio cliente tente mandar).
+  const forwardedId = (await headers()).get("x-autora-uid");
+  if (forwardedId) {
+    const viaHeader = await prisma.user.findUnique({ where: { id: forwardedId }, select: USER_SELECT });
+    if (viaHeader) return viaHeader;
+    // Linha-espelho ainda não existe (1ª requisição logo após o cadastro) —
+    // cai no caminho completo abaixo, que tem os metadados pra criá-la.
+  }
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },

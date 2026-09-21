@@ -70,6 +70,23 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Repassa a identidade já validada pros Server Components lerem via
+  // headers() em vez de chamar getUser() de novo — evita uma 2ª ida à rede
+  // pro Auth do Supabase em toda navegação (ver `requireUser()`). Setado
+  // SEMPRE depois da validação acima, então nunca confia em header vindo
+  // do próprio cliente (o valor dele é sobrescrito/removido aqui).
+  const refreshedCookies = response.cookies.getAll();
+  if (user) {
+    request.headers.set("x-autora-uid", user.id);
+    if (user.email) request.headers.set("x-autora-email", user.email);
+    else request.headers.delete("x-autora-email");
+  } else {
+    request.headers.delete("x-autora-uid");
+    request.headers.delete("x-autora-email");
+  }
+  response = NextResponse.next({ request });
+  for (const cookie of refreshedCookies) response.cookies.set(cookie);
+
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
   const isApi = path.startsWith("/api");
