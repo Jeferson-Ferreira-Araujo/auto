@@ -166,7 +166,6 @@ export function Sidebar({
       <Link
         key={it.href}
         href={it.href}
-        prefetch={false}
         onClick={() => setOpen(false)}
         title={collapsed ? it.label : undefined}
         className={cn(

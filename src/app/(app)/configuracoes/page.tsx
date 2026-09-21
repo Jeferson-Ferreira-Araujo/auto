@@ -21,20 +21,24 @@ export default async function ConfiguracoesPage({
 }) {
   const { org, user } = await requireOrgOrOnboarding();
   const sp = await searchParams;
-  const members = await prisma.organizationMember.findMany({
-    where: { organizationId: org.id },
-    include: { user: { select: { email: true, name: true } } },
-    orderBy: { createdAt: "asc" },
-  });
 
-  const mediaCount = await prisma.mediaAsset.count({ where: { organizationId: org.id } });
+  const [members, mediaCount, whatsappEnabled, musicEnabled, waContactRow, instagramAccount] = await Promise.all([
+    prisma.organizationMember.findMany({
+      where: { organizationId: org.id },
+      include: { user: { select: { email: true, name: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.mediaAsset.count({ where: { organizationId: org.id } }),
+    isFeatureEnabled("marketing_whatsapp"),
+    isFeatureEnabled("marketing_video_music"),
+    // Sempre busca (é barato) — decide se usa depois de saber se a funcionalidade está ligada.
+    // Assim não precisa esperar `whatsappEnabled` resolver antes de disparar esta query.
+    prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } }),
+    prisma.instagramAccount.findUnique({ where: { organizationId: org.id } }),
+  ]);
 
-  const whatsappEnabled = await isFeatureEnabled("marketing_whatsapp");
-  const musicEnabled = await isFeatureEnabled("marketing_video_music");
   const configured = whatsappEnabled && whatsappConfigured();
-  const waContact = configured
-    ? await prisma.whatsAppContact.findFirst({ where: { organizationId: org.id } })
-    : null;
+  const waContact = configured ? waContactRow : null;
   const whatsappState: WhatsAppState = {
     configured,
     testNumber: configured ? whatsappTestNumber() : null,
@@ -59,7 +63,7 @@ export default async function ConfiguracoesPage({
 
       <div className="space-y-6">
         <div id="instagram" className="scroll-mt-20">
-          <InstagramPanel organizationId={org.id} sp={sp} />
+          <InstagramPanel account={instagramAccount} sp={sp} />
         </div>
 
         <AutoPublishToggle status={org.autoPublishStatus} />

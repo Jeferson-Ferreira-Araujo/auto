@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import type { InstagramAccount } from "@prisma/client";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/primitives";
 import { formatDateTime, daysUntil } from "@/lib/display";
 import { insightsNeedsReconnect } from "@/lib/instagram/insights";
@@ -21,14 +21,13 @@ const ERROS: Record<string, string> = {
   falha: "Não foi possível concluir a conexão. Verifique se a conta é profissional (Comercial ou Criador de Conteúdo).",
 };
 
-export async function InstagramPanel({
-  organizationId,
+export function InstagramPanel({
+  account,
   sp,
 }: {
-  organizationId: string;
+  account: InstagramAccount | null;
   sp: { conectado?: string; erro?: string };
 }) {
-  const account = await prisma.instagramAccount.findUnique({ where: { organizationId } });
   const daysLeft = account ? daysUntil(account.tokenExpiresAt) : 0;
 
   return (
