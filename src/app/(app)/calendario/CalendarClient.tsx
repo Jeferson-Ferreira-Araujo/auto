@@ -438,7 +438,9 @@ function NewPost({
   }
 
   function onCollageCreated(asset: { id: string; name: string; type: "IMAGE" | "VIDEO" }) {
-    setLocalMedia((cur) => [{ id: asset.id, name: asset.name, type: asset.type, caption: null }, ...cur]);
+    setLocalMedia((cur) =>
+      cur.some((m) => m.id === asset.id) ? cur : [{ id: asset.id, name: asset.name, type: asset.type, caption: null }, ...cur],
+    );
     setMediaId(asset.id);
     setCaption("");
     setMediaTypeFilter("ALL");

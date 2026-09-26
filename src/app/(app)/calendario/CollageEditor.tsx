@@ -53,6 +53,8 @@ export function CollageEditor({
   const [activeSlot, setActiveSlot] = useState<number | null>(0);
   const [rendering, setRendering] = useState<string | null>(null); // mensagem de progresso quando tem vídeo
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false); // evita empilhar checagens se a rede estiver lenta
+  const doneRef = useRef(false); // garante que COMPLETED/FAILED só seja tratado uma vez
 
   useEffect(() => () => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -76,15 +78,25 @@ export function CollageEditor({
   const complete = slots.every((s) => s !== null);
 
   function pollJob(jobId: string, name: string, mediaAssetId: string) {
+    doneRef.current = false;
     pollRef.current = setInterval(async () => {
+      // Numa rede lenta, uma checagem pode não voltar antes da próxima disparar — sem isto,
+      // várias respostas "concluído" chegando fora de ordem tratavam a mesma montagem várias
+      // vezes (cada uma adicionando de novo na lista, mesmo sendo só um vídeo no servidor).
+      if (inFlightRef.current || doneRef.current) return;
+      inFlightRef.current = true;
       const res = await getVideoJob({ jobId });
-      if (!res.ok) return;
+      inFlightRef.current = false;
+      if (doneRef.current || !res.ok) return;
+
       if (res.data.status === "COMPLETED") {
+        doneRef.current = true;
         if (pollRef.current) clearInterval(pollRef.current);
         setRendering(null);
         toast.push("Montagem criada", "success");
         onCreated({ id: mediaAssetId, name, type: "VIDEO" });
       } else if (res.data.status === "FAILED") {
+        doneRef.current = true;
         if (pollRef.current) clearInterval(pollRef.current);
         setRendering(null);
         toast.push(res.data.errorMessage ?? "Não foi possível montar a grade.", "error");
