@@ -2,7 +2,7 @@
 
 /* AUTORA — paleta azul-marinho / azul / violeta, muito branco, cantos arredondados. */
 @theme {
-  --color-bg: #f8fafc;
+  --color-bg: #eef1f7;
   --color-surface: #ffffff;
   --color-border: #e2e8f0;
   --color-text: #0f172a;
@@ -21,9 +21,18 @@
   --color-urgent: #ea580c;
   --color-danger: #dc2626;
 
+  /* Sidebar escura — mesma âncora de marca do painel de auth (`BrandPanel.tsx`). */
+  --color-sidebar-bg: #0a1128;
+  --color-sidebar-border: rgba(255, 255, 255, 0.08);
+  --color-sidebar-text: #e2e8f0;
+  --color-sidebar-muted: #8b95b6;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --color-sidebar-active-bg: rgba(129, 140, 248, 0.16);
+  --color-sidebar-active-text: #a5b4fc;
+
   --gradient-brand: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
   --radius: 0.875rem;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 16px -4px rgba(15, 23, 42, 0.1);
 }
 
 * {

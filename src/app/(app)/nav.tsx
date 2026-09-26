@@ -124,7 +124,7 @@ export function Sidebar({
 
   const brand = (
     <div className="flex items-center px-2">
-      <Logo withWordmark={!collapsed} size={30} wordmarkClassName="text-[15px]" />
+      <Logo withWordmark={!collapsed} size={30} wordmarkClassName="text-[15px] text-white" />
     </div>
   );
 
@@ -132,18 +132,18 @@ export function Sidebar({
     <Link
       href="/configuracoes"
       onClick={() => setOpen(false)}
-      className="mx-1 flex items-center gap-2.5 rounded-[var(--radius)] border bg-[var(--color-surface)] p-2 hover:border-[var(--color-primary)]"
+      className="mx-1 flex items-center gap-2.5 rounded-[var(--radius)] border border-[var(--color-sidebar-border)] bg-white/[0.04] p-2 hover:border-white/20 hover:bg-white/[0.07]"
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-xs font-bold text-[var(--color-primary)]">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-sidebar-active-bg)] text-xs font-bold text-[var(--color-sidebar-active-text)]">
         {orgName.slice(0, 1).toUpperCase()}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold leading-tight">{orgName}</span>
+        <span className="block truncate text-sm font-semibold leading-tight text-[var(--color-sidebar-text)]">{orgName}</span>
         {orgHandle && (
-          <span className="block truncate text-xs text-[var(--color-muted)]">@{orgHandle}</span>
+          <span className="block truncate text-xs text-[var(--color-sidebar-muted)]">@{orgHandle}</span>
         )}
       </span>
-      <Icon.chevronDown className="shrink-0 text-[var(--color-muted)]" width={16} height={16} />
+      <Icon.chevronDown className="shrink-0 text-[var(--color-sidebar-muted)]" width={16} height={16} />
     </Link>
   );
 
@@ -173,11 +173,11 @@ export function Sidebar({
           collapsed && "justify-center px-2",
           opts?.nested && !collapsed && "py-1.5 pl-3",
           active
-            ? "bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]"
-            : "text-[var(--color-text)] hover:bg-black/[0.04]",
+            ? "bg-[var(--color-sidebar-active-bg)] font-semibold text-[var(--color-sidebar-active-text)]"
+            : "text-[var(--color-sidebar-text)] hover:bg-[var(--color-sidebar-hover)]",
         )}
       >
-        <Ico className={active ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"} />
+        <Ico className={active ? "text-[var(--color-sidebar-active-text)]" : "text-[var(--color-sidebar-muted)]"} />
         {!collapsed && it.label}
       </Link>
     );
@@ -203,20 +203,20 @@ export function Sidebar({
           type="button"
           onClick={() => setOpenModules((s) => ({ ...s, [g.key!]: !expanded }))}
           className={cn(
-            "flex w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors hover:bg-black/[0.04]",
-            hasActive ? "font-semibold text-[var(--color-primary)]" : "text-[var(--color-text)]",
+            "flex w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors hover:bg-[var(--color-sidebar-hover)]",
+            hasActive ? "font-semibold text-[var(--color-sidebar-active-text)]" : "text-[var(--color-sidebar-text)]",
           )}
         >
-          <Ico className={hasActive ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"} />
+          <Ico className={hasActive ? "text-[var(--color-sidebar-active-text)]" : "text-[var(--color-sidebar-muted)]"} />
           <span className="flex-1 text-left">{g.label}</span>
           <Icon.chevronDown
             width={14}
             height={14}
-            className={cn("shrink-0 text-[var(--color-muted)] transition-transform", expanded && "rotate-180")}
+            className={cn("shrink-0 text-[var(--color-sidebar-muted)] transition-transform", expanded && "rotate-180")}
           />
         </button>
         {expanded && (
-          <div className="ml-4 flex flex-col gap-0.5 border-l pl-1">
+          <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--color-sidebar-border)] pl-1">
             {g.items.map((it) => renderItem(it, { nested: true }))}
           </div>
         )}
@@ -239,7 +239,7 @@ export function Sidebar({
   );
 
   const promo = !collapsed && (
-    <div className="bg-gradient-brand mx-1 rounded-[var(--radius)] p-3.5 text-white">
+    <div className="bg-gradient-brand mx-1 rounded-[var(--radius)] p-3.5 text-white shadow-lg shadow-black/20">
       <div className="flex items-center gap-1.5 text-sm font-semibold">
         <Icon.rocket width={16} height={16} /> Publique mais, cresça mais!
       </div>
@@ -261,19 +261,19 @@ export function Sidebar({
   return (
     <>
       {/* topo mobile */}
-      <div className="flex items-center justify-between border-b bg-[var(--color-surface)] px-4 py-3 md:hidden">
+      <div className="flex items-center justify-between border-b border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-bg)] px-4 py-3 md:hidden">
         {brand}
-        <button onClick={() => setOpen((o) => !o)} className="rounded p-1 hover:bg-black/5" aria-label="Menu">
+        <button onClick={() => setOpen((o) => !o)} className="rounded p-1 text-white hover:bg-white/10" aria-label="Menu">
           ☰
         </button>
       </div>
       {open && (
-        <div className="space-y-3 border-b bg-[var(--color-surface)] p-3 md:hidden">
+        <div className="space-y-3 border-b border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-bg)] p-3 md:hidden">
           {orgCard}
           {nav}
           {promo}
           <form action={signOut}>
-            <button className="w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-muted)] hover:bg-black/5">
+            <button className="w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-sidebar-muted)] hover:bg-[var(--color-sidebar-hover)]">
               Sair
             </button>
           </form>
@@ -283,14 +283,14 @@ export function Sidebar({
       {/* sidebar desktop */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col gap-3 border-r bg-[var(--color-surface)] py-4 md:flex",
+          "hidden shrink-0 flex-col gap-3 border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-bg)] py-4 md:flex",
           width,
         )}
       >
         <div className="px-2">{brand}</div>
         {orgCard}
         {paused && !collapsed && (
-          <div className="mx-1 rounded-md bg-amber-100 px-2 py-1.5 text-xs font-medium text-amber-800">
+          <div className="mx-1 rounded-md bg-amber-400/15 px-2 py-1.5 text-xs font-medium text-amber-300">
             Publicação automática pausada
           </div>
         )}
@@ -300,7 +300,7 @@ export function Sidebar({
           <button
             onClick={toggleCollapse}
             className={cn(
-              "flex w-full items-center gap-2 rounded-[var(--radius)] px-3 py-2 text-sm text-[var(--color-muted)] hover:bg-black/5",
+              "flex w-full items-center gap-2 rounded-[var(--radius)] px-3 py-2 text-sm text-[var(--color-sidebar-muted)] hover:bg-[var(--color-sidebar-hover)]",
               collapsed && "justify-center px-2",
             )}
           >
@@ -310,7 +310,7 @@ export function Sidebar({
           <form action={signOut}>
             <button
               className={cn(
-                "w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-muted)] hover:bg-black/5",
+                "w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-sidebar-muted)] hover:bg-[var(--color-sidebar-hover)]",
                 collapsed && "text-center",
               )}
             >

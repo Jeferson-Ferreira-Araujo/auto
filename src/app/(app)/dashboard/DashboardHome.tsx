@@ -21,6 +21,54 @@ function dayLabel(d: Date, tz: string): string {
 
 type Attn = { icon: "alert" | "clock"; tone: "danger" | "urgent" | "warning"; text: string; href: string };
 
+const KPI_TONES = {
+  warning: { chip: "bg-amber-50 text-[var(--color-warning)]", bar: "bg-[var(--color-warning)]" },
+  primary: { chip: "bg-[var(--color-primary-soft)] text-[var(--color-primary)]", bar: "bg-[var(--color-primary)]" },
+  success: { chip: "bg-emerald-50 text-[var(--color-success)]", bar: "bg-[var(--color-success)]" },
+  violet: { chip: "bg-violet-50 text-[var(--color-violet)]", bar: "bg-[var(--color-violet)]" },
+} as const;
+
+function KpiCard({
+  icon,
+  tone,
+  label,
+  value,
+  hint,
+  href,
+}: {
+  icon: "box" | "calendar" | "check" | "automation";
+  tone: keyof typeof KPI_TONES;
+  label: string;
+  value: number;
+  hint: string;
+  href?: string;
+}) {
+  const Ico = Icon[icon];
+  const t = KPI_TONES[tone];
+  const body = (
+    <Card className="relative overflow-hidden">
+      <span className={`absolute inset-y-0 left-0 w-1 ${t.bar}`} />
+      <CardBody>
+        <div className="flex items-center gap-2.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${t.chip}`}>
+            <Ico width={16} height={16} />
+          </span>
+          <span className="text-sm text-[var(--color-muted)]">{label}</span>
+        </div>
+        <div className="mt-2 text-2xl font-bold text-[var(--color-heading)]">{value}</div>
+        <div className="text-xs text-[var(--color-muted)]">{hint}</div>
+      </CardBody>
+    </Card>
+  );
+  return href ? (
+    <Link href={href} className="block transition-transform hover:-translate-y-0.5">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
+}
+
 function activityLine(e: { type: string; payload: unknown; createdAt: Date }, tz: string): { mark: "ok" | "warn"; text: string } {
   const p = (e.payload ?? {}) as Record<string, unknown>;
   const at = formatTime(e.createdAt, tz);
@@ -158,37 +206,38 @@ export async function DashboardHome({ ctx }: { ctx: OrgContext }) {
       </Card>
 
       {/* Visão de hoje */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardBody>
-            <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
-              <Icon.box width={16} height={16} /> Validades
-            </div>
-            <div className="mt-1 text-2xl font-bold">{board.counts.vencido + board.counts.urgente}</div>
-            <div className="text-xs text-[var(--color-muted)]">precisam de ação</div>
-            <Link href="/produtos" className="mt-1 inline-block text-xs font-medium text-[var(--color-primary)]">
-              abrir Validades →
-            </Link>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
-              <Icon.calendar width={16} height={16} /> Publicações hoje
-            </div>
-            <div className="mt-1 text-2xl font-bold">{todayPosts.length}</div>
-            <div className="text-xs text-[var(--color-muted)]">agendadas para hoje</div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
-              <Icon.check width={16} height={16} /> Publicado hoje
-            </div>
-            <div className="mt-1 text-2xl font-bold">{publishedToday}</div>
-            <div className="text-xs text-[var(--color-muted)]">a AUTORA publicou por você</div>
-          </CardBody>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          icon="box"
+          tone="warning"
+          label="Validades"
+          value={board.counts.vencido + board.counts.urgente}
+          hint="precisam de ação"
+          href="/produtos"
+        />
+        <KpiCard
+          icon="calendar"
+          tone="primary"
+          label="Publicações hoje"
+          value={todayPosts.length}
+          hint="agendadas para hoje"
+          href="/calendario"
+        />
+        <KpiCard
+          icon="check"
+          tone="success"
+          label="Publicado hoje"
+          value={publishedToday}
+          hint="a AUTORA publicou por você"
+        />
+        <KpiCard
+          icon="automation"
+          tone="violet"
+          label="Automações ativas"
+          value={automations.length}
+          hint="rodando no seu negócio"
+          href="/automacoes"
+        />
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-5">
