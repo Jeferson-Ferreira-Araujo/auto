@@ -465,10 +465,11 @@ function NewPost({
 
   type VideoPreviewState =
     | { status: "idle" }
-    | { status: "processing" }
+    | { status: "processing"; progress: number }
     | { status: "ready"; url: string }
     | { status: "error"; message: string };
   const [videoPreview, setVideoPreview] = useState<VideoPreviewState>({ status: "idle" });
+  const [showPreviewConfirm, setShowPreviewConfirm] = useState(false);
   const previewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previewGuardRef = useRef({ inFlight: false, cancelled: false });
 
@@ -481,6 +482,7 @@ function NewPost({
   function resetVideoPreview() {
     stopVideoPreviewPoll();
     setVideoPreview({ status: "idle" });
+    setShowPreviewConfirm(false);
   }
 
   useEffect(() => {
@@ -493,8 +495,13 @@ function NewPost({
   }, []);
 
   async function startVideoPreview() {
-    if (!mediaId || !musicTrackId) return;
-    setVideoPreview({ status: "processing" });
+    if (!mediaId) return;
+    if (!musicTrackId) {
+      // Sem trilha: é o próprio arquivo, mostra na hora sem gerar nada novo.
+      setVideoPreview({ status: "ready", url: mediaUrl(mediaId, "preview") });
+      return;
+    }
+    setVideoPreview({ status: "processing", progress: 0 });
     const res = await requestMusicPreview({ mediaAssetId: mediaId, musicTrackId, musicMode });
     if (!res.ok) {
       setVideoPreview({ status: "error", message: res.error.message });
@@ -518,8 +525,10 @@ function NewPost({
           status: "error",
           message: r.data.errorMessage ?? "Não foi possível gerar a prévia.",
         });
+      } else {
+        setVideoPreview({ status: "processing", progress: r.data.progress ?? 0 });
       }
-    }, 2500);
+    }, 2000);
   }
 
   useEffect(() => stopPreview, []);
@@ -556,6 +565,14 @@ function NewPost({
     if (format === "CAROUSEL" && (carouselTotal < 2 || carouselTotal > 10)) {
       return toast.push("Um carrossel tem de 2 a 10 mídias.", "error");
     }
+    if (showMusic && videoPreview.status !== "ready") {
+      setShowPreviewConfirm(true);
+      return;
+    }
+    doSubmit();
+  }
+
+  function doSubmit() {
     start(async () => {
       const res = await createManualPost({
         instagramAccountId: accountId,
@@ -723,14 +740,10 @@ function NewPost({
           )}
         </>
       )}
-      {!showCollageEditor && mediaId && format !== "CAROUSEL" && (
+      {!showCollageEditor && mediaId && format !== "CAROUSEL" && selectedMedia?.type !== "VIDEO" && (
         <div className="mb-4 overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)]">
-          {localMedia.find((m) => m.id === mediaId)?.type === "VIDEO" ? (
-            <video src={mediaUrl(mediaId, "preview")} controls className="max-h-52 w-full" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={mediaUrl(mediaId, "preview")} alt="" className="max-h-52 w-full object-contain" />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={mediaUrl(mediaId, "preview")} alt="" className="max-h-52 w-full object-contain" />
         </div>
       )}
       {showMusic && (
@@ -826,12 +839,19 @@ function NewPost({
           )}
         </Field>
       )}
-      {showMusic && musicTrackId && videoPreview.status !== "idle" && (
+      {showMusic && videoPreview.status !== "idle" && (
         <div className="mb-4 overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)] p-3">
           {videoPreview.status === "processing" && (
-            <p className="text-sm text-[var(--color-muted)]">
-              Gerando prévia com a trilha sonora… pode levar até 1 minuto.
-            </p>
+            <div>
+              <p className="text-sm text-[var(--color-muted)]">Gerando prévia com a trilha sonora…</p>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+                <div
+                  className="h-full rounded-full bg-[var(--color-primary)] transition-all"
+                  style={{ width: `${Math.max(4, videoPreview.progress)}%` }}
+                />
+              </div>
+              <p className="mt-1 text-right text-xs text-[var(--color-muted)]">{videoPreview.progress}%</p>
+            </div>
           )}
           {videoPreview.status === "ready" && (
             <video src={videoPreview.url} controls autoPlay className="max-h-52 w-full rounded" />
@@ -859,14 +879,43 @@ function NewPost({
           Stories não têm legenda e somem em 24h. Vídeo de story: até 60s.
         </p>
       )}
+      {showPreviewConfirm && (
+        <div className="mb-3 rounded-[var(--radius)] border border-amber-300 bg-amber-50 p-3 text-sm">
+          <p className="font-medium text-[var(--color-heading)]">Você ainda não viu como o vídeo vai ficar.</p>
+          <p className="mt-0.5 text-[var(--color-muted)]">Quer pré-visualizar antes de agendar?</p>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowPreviewConfirm(false);
+                doSubmit();
+              }}
+            >
+              Agendar mesmo assim
+            </Button>
+            <Button
+              onClick={() => {
+                setShowPreviewConfirm(false);
+                startVideoPreview();
+              }}
+            >
+              Pré-visualizar
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="mt-2 flex items-center justify-end gap-2">
-        {showMusic && musicTrackId && (
+        {showMusic && (
           <Button
             variant="ghost"
             onClick={startVideoPreview}
             disabled={videoPreview.status === "processing"}
           >
-            {videoPreview.status === "processing" ? "Gerando prévia…" : "Pré-visualizar com música"}
+            {videoPreview.status === "processing"
+              ? `Gerando prévia… ${videoPreview.progress}%`
+              : musicTrackId
+                ? "Pré-visualizar com música"
+                : "Pré-visualizar vídeo"}
           </Button>
         )}
         <Button variant="ghost" onClick={onClose} disabled={pending}>
