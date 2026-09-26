@@ -35,7 +35,7 @@ export default async function CalendarioPage({
   const windowStart = new Date(start.getTime() - 8 * 86400000);
   const windowEnd = new Date(end.getTime() + 8 * 86400000);
 
-  const [posts, accounts, media, audioTracks, musicEnabled] = await Promise.all([
+  const [posts, accounts, media, audioTracks, musicEnabled, collageEnabled] = await Promise.all([
     prisma.scheduledPost.findMany({
       where: { organizationId: org.id, scheduledAt: { gte: windowStart, lte: windowEnd } },
       include: {
@@ -56,6 +56,7 @@ export default async function CalendarioPage({
     }),
     listAudioTracks(org.id),
     isFeatureEnabled("marketing_video_music"),
+    isFeatureEnabled("marketing_collage"),
   ]);
 
   const calPosts: CalPost[] = posts.map((p) => ({
@@ -88,6 +89,7 @@ export default async function CalendarioPage({
         media={pickMedia}
         audioTracks={musicEnabled ? audioTracks : []}
         suggestedTrackId={musicEnabled ? (org.autoMusicTrackId ?? null) : null}
+        collageEnabled={collageEnabled}
         timezone={org.timezone}
       />
     </>

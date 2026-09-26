@@ -77,6 +77,13 @@ export const FEATURES = {
     group: "Marketing",
     parent: "marketing_whatsapp",
   },
+
+  marketing_collage: {
+    label: "Montagem de fotos (grade)",
+    description:
+      "Juntar 2 a 4 fotos num só post no estilo grade do Instagram (lado a lado, grande + pequenas, 2×2 etc.), na hora de agendar.",
+    group: "Marketing",
+  },
 } as const;
 
 export type FeatureKey = keyof typeof FEATURES;

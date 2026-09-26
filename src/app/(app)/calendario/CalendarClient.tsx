@@ -12,6 +12,7 @@ import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatTime, formatDateTi
 import { MediaThumb } from "@/components/MediaThumb";
 import { cn } from "@/lib/utils";
 import { cancelScheduledPost, createManualPost, updateScheduledPost } from "./actions";
+import { CollageEditor } from "./CollageEditor";
 
 export type CalPost = {
   id: string;
@@ -43,6 +44,7 @@ export function CalendarClient({
   media,
   audioTracks,
   suggestedTrackId,
+  collageEnabled,
   timezone,
 }: {
   year: number;
@@ -52,6 +54,7 @@ export function CalendarClient({
   media: PickMedia[];
   audioTracks: AudioTrackOption[];
   suggestedTrackId: string | null;
+  collageEnabled: boolean;
   timezone: string;
 }) {
   const router = useRouter();
@@ -239,6 +242,7 @@ export function CalendarClient({
           media={media}
           audioTracks={audioTracks}
           suggestedTrackId={suggestedTrackId}
+          collageEnabled={collageEnabled}
           onClose={() => setCreating(null)}
           onCreated={() => {
             setCreating(null);
@@ -398,6 +402,7 @@ function NewPost({
   media,
   audioTracks,
   suggestedTrackId,
+  collageEnabled,
   onClose,
   onCreated,
 }: {
@@ -406,12 +411,14 @@ function NewPost({
   media: PickMedia[];
   audioTracks: AudioTrackOption[];
   suggestedTrackId: string | null;
+  collageEnabled: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const toast = useToast();
   const [pending, start] = useTransition();
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const [localMedia, setLocalMedia] = useState(media); // + montagens criadas nesta sessão do modal
   const [mediaId, setMediaId] = useState(media[0]?.id ?? "");
   const [caption, setCaption] = useState(media[0]?.caption ?? "");
   const [when, setWhen] = useState(`${date}T09:00`);
@@ -421,18 +428,28 @@ function NewPost({
   const [musicTrackId, setMusicTrackId] = useState<string>(suggested);
   const [musicMode, setMusicMode] = useState<"MIX" | "MUSIC_ONLY">("MIX");
   const [mediaTypeFilter, setMediaTypeFilter] = useState<"ALL" | "IMAGE" | "VIDEO">("ALL");
+  const [showCollageEditor, setShowCollageEditor] = useState(false);
 
   function onMediaChange(id: string) {
     setMediaId(id);
     setExtraIds((cur) => cur.filter((x) => x !== id));
-    const m = media.find((x) => x.id === id);
+    const m = localMedia.find((x) => x.id === id);
     setCaption(m?.caption ?? "");
   }
 
-  const visibleMedia = media.filter((m) => mediaTypeFilter === "ALL" || m.type === mediaTypeFilter);
-  const photoCount = media.filter((m) => m.type === "IMAGE").length;
-  const videoCount = media.filter((m) => m.type === "VIDEO").length;
-  const selectedMedia = media.find((m) => m.id === mediaId);
+  function onCollageCreated(asset: { id: string; name: string }) {
+    setLocalMedia((cur) => [{ id: asset.id, name: asset.name, type: "IMAGE", caption: null }, ...cur]);
+    setMediaId(asset.id);
+    setCaption("");
+    setMediaTypeFilter("ALL");
+    setShowCollageEditor(false);
+  }
+
+  const showCollageOption = collageEnabled && format === "AUTO";
+  const visibleMedia = localMedia.filter((m) => mediaTypeFilter === "ALL" || m.type === mediaTypeFilter);
+  const photoCount = localMedia.filter((m) => m.type === "IMAGE").length;
+  const videoCount = localMedia.filter((m) => m.type === "VIDEO").length;
+  const selectedMedia = localMedia.find((m) => m.id === mediaId);
   const showMusic = selectedMedia?.type === "VIDEO" && format !== "CAROUSEL" && audioTracks.length > 0;
   const carouselTotal = 1 + extraIds.length;
 
@@ -457,7 +474,7 @@ function NewPost({
     });
   }
 
-  if (media.length === 0) {
+  if (localMedia.length === 0) {
     return (
       <Modal open onClose={onClose} title="Agendar publicação">
         <p className="text-sm text-[var(--color-muted)]">
@@ -485,95 +502,135 @@ function NewPost({
           <option value="CAROUSEL">Carrossel</option>
         </Select>
       </Field>
-      <Field
-        label={format === "CAROUSEL" ? "Primeira mídia (capa)" : "Mídia"}
-        hint="Escolha qual mídia da biblioteca você quer publicar."
-      >
-        <div className="mb-2 flex gap-1">
-          {(
-            [
-              ["ALL", `Todas (${media.length})`],
-              ["IMAGE", `Fotos (${photoCount})`],
-              ["VIDEO", `Vídeos (${videoCount})`],
-            ] as const
-          ).map(([value, label]) => (
+      {showCollageOption && (
+        <Field label="Tipo de mídia">
+          <div className="flex gap-1">
             <button
-              key={value}
               type="button"
-              onClick={() => setMediaTypeFilter(value)}
+              onClick={() => setShowCollageEditor(false)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium",
-                mediaTypeFilter === value
+                !showCollageEditor
                   ? "bg-[var(--color-primary)] text-white"
                   : "bg-[var(--color-bg)] text-[var(--color-muted)] hover:bg-black/[0.04]",
               )}
             >
-              {label}
+              Mídia única
             </button>
-          ))}
-        </div>
-        {visibleMedia.length === 0 ? (
-          <p className="rounded-[var(--radius)] border border-dashed p-4 text-center text-sm text-[var(--color-muted)]">
-            Nenhuma {mediaTypeFilter === "IMAGE" ? "foto" : "vídeo"} disponível.
-          </p>
-        ) : (
-          <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto rounded-[var(--radius)] border p-2 sm:grid-cols-5">
-            {visibleMedia.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => onMediaChange(m.id)}
-                title={m.name}
-                className={cn(
-                  "relative aspect-square overflow-hidden rounded-[calc(var(--radius)-4px)] border-2 bg-[var(--color-bg)]",
-                  m.id === mediaId
-                    ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30"
-                    : "border-transparent hover:border-[var(--color-border)]",
-                )}
-              >
-                <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
-                {m.type === "VIDEO" && (
-                  <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
-                    🎬
-                  </span>
-                )}
-                {m.id === mediaId && (
-                  <span className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setShowCollageEditor(true)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium",
+                showCollageEditor
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-[var(--color-bg)] text-[var(--color-muted)] hover:bg-black/[0.04]",
+              )}
+            >
+              Grade (montagem de fotos)
+            </button>
           </div>
-        )}
-        <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
-          {media.find((m) => m.id === mediaId)?.name ?? "Nenhuma mídia selecionada"}
-        </p>
-      </Field>
-      {format === "CAROUSEL" && (
-        <Field
-          label={`Outras mídias do carrossel (${carouselTotal}/10)`}
-          hint="Segure Ctrl/Cmd para escolher várias. Total de 2 a 10."
-        >
-          <select
-            multiple
-            value={extraIds}
-            onChange={(e) => setExtraIds([...e.target.selectedOptions].map((o) => o.value))}
-            className="h-32 w-full rounded-[var(--radius)] border bg-white p-2 text-sm"
-          >
-            {media
-              .filter((m) => m.id !== mediaId)
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.type === "VIDEO" ? "🎬" : "🖼"} {m.name}
-                </option>
-              ))}
-          </select>
         </Field>
       )}
-      {mediaId && format !== "CAROUSEL" && (
+      {showCollageOption && showCollageEditor ? (
+        <CollageEditor
+          images={localMedia.filter((m) => m.type === "IMAGE")}
+          onCreated={onCollageCreated}
+          onCancel={() => setShowCollageEditor(false)}
+        />
+      ) : (
+        <>
+          <Field
+            label={format === "CAROUSEL" ? "Primeira mídia (capa)" : "Mídia"}
+            hint="Escolha qual mídia da biblioteca você quer publicar."
+          >
+            <div className="mb-2 flex gap-1">
+              {(
+                [
+                  ["ALL", `Todas (${localMedia.length})`],
+                  ["IMAGE", `Fotos (${photoCount})`],
+                  ["VIDEO", `Vídeos (${videoCount})`],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setMediaTypeFilter(value)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium",
+                    mediaTypeFilter === value
+                      ? "bg-[var(--color-primary)] text-white"
+                      : "bg-[var(--color-bg)] text-[var(--color-muted)] hover:bg-black/[0.04]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {visibleMedia.length === 0 ? (
+              <p className="rounded-[var(--radius)] border border-dashed p-4 text-center text-sm text-[var(--color-muted)]">
+                Nenhuma {mediaTypeFilter === "IMAGE" ? "foto" : "vídeo"} disponível.
+              </p>
+            ) : (
+              <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto rounded-[var(--radius)] border p-2 sm:grid-cols-5">
+                {visibleMedia.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onMediaChange(m.id)}
+                    title={m.name}
+                    className={cn(
+                      "relative aspect-square overflow-hidden rounded-[calc(var(--radius)-4px)] border-2 bg-[var(--color-bg)]",
+                      m.id === mediaId
+                        ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/30"
+                        : "border-transparent hover:border-[var(--color-border)]",
+                    )}
+                  >
+                    <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
+                    {m.type === "VIDEO" && (
+                      <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
+                        🎬
+                      </span>
+                    )}
+                    {m.id === mediaId && (
+                      <span className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
+              {localMedia.find((m) => m.id === mediaId)?.name ?? "Nenhuma mídia selecionada"}
+            </p>
+          </Field>
+          {format === "CAROUSEL" && (
+            <Field
+              label={`Outras mídias do carrossel (${carouselTotal}/10)`}
+              hint="Segure Ctrl/Cmd para escolher várias. Total de 2 a 10."
+            >
+              <select
+                multiple
+                value={extraIds}
+                onChange={(e) => setExtraIds([...e.target.selectedOptions].map((o) => o.value))}
+                className="h-32 w-full rounded-[var(--radius)] border bg-white p-2 text-sm"
+              >
+                {localMedia
+                  .filter((m) => m.id !== mediaId)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.type === "VIDEO" ? "🎬" : "🖼"} {m.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+          )}
+        </>
+      )}
+      {!showCollageEditor && mediaId && format !== "CAROUSEL" && (
         <div className="mb-4 overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)]">
-          {media.find((m) => m.id === mediaId)?.type === "VIDEO" ? (
+          {localMedia.find((m) => m.id === mediaId)?.type === "VIDEO" ? (
             <video src={mediaUrl(mediaId, "preview")} controls className="max-h-52 w-full" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
