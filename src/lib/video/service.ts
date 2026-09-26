@@ -188,6 +188,7 @@ export const VideoProcessingService = {
         fileSize: 0,
         processingStatus: "PENDING",
         processingNote: "Montando a grade…",
+        isCollage: true,
       },
     });
 

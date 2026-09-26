@@ -28,6 +28,7 @@ async function ingestCore(params: {
   bytes: Buffer;
   originalName: string;
   timezone?: string;
+  isCollage?: boolean;
   onInvalid?: () => Promise<void>;
 }) {
   const { organizationId, storageKey, bytes, originalName, timezone } = params;
@@ -81,6 +82,7 @@ async function ingestCore(params: {
       processingStatus: result.status,
       processingError: result.error ?? null,
       processingNote: result.note ?? null,
+      isCollage: params.isCollage ?? false,
     },
   });
 
@@ -114,6 +116,7 @@ export async function ingestFromBuffer(params: {
   mimeType: string;
   originalName: string;
   timezone?: string;
+  isCollage?: boolean;
 }) {
   const ext = extFromMime(params.mimeType);
   const storageKey = buildKey(params.organizationId, "media", ext);
@@ -124,6 +127,7 @@ export async function ingestFromBuffer(params: {
     bytes: params.bytes,
     originalName: params.originalName,
     timezone: params.timezone,
+    isCollage: params.isCollage,
     onInvalid: () => deleteObject(storageKey),
   });
 }

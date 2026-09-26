@@ -9,7 +9,7 @@ import { Badge, Field, Select, Textarea } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatTime, formatDateTime } from "@/lib/display";
-import { MediaThumb } from "@/components/MediaThumb";
+import { MediaThumb, VideoPlayBadge } from "@/components/MediaThumb";
 import { cn } from "@/lib/utils";
 import { cancelScheduledPost, createManualPost, updateScheduledPost } from "./actions";
 import { CollageEditor } from "./CollageEditor";
@@ -30,7 +30,7 @@ export type CalPost = {
   errorMessage: string | null;
   instagramMediaId: string | null;
 };
-export type PickMedia = { id: string; name: string; type: MediaType; caption: string | null };
+export type PickMedia = { id: string; name: string; type: MediaType; caption: string | null; isCollage: boolean };
 export type AudioTrackOption = { id: string; name: string; durationSec: number | null; curated: boolean };
 type Account = { id: string; username: string };
 
@@ -439,7 +439,9 @@ function NewPost({
 
   function onCollageCreated(asset: { id: string; name: string; type: "IMAGE" | "VIDEO" }) {
     setLocalMedia((cur) =>
-      cur.some((m) => m.id === asset.id) ? cur : [{ id: asset.id, name: asset.name, type: asset.type, caption: null }, ...cur],
+      cur.some((m) => m.id === asset.id)
+        ? cur
+        : [{ id: asset.id, name: asset.name, type: asset.type, caption: null, isCollage: true }, ...cur],
     );
     setMediaId(asset.id);
     setCaption("");
@@ -536,7 +538,7 @@ function NewPost({
       )}
       {showCollageOption && showCollageEditor ? (
         <CollageEditor
-          media={localMedia}
+          media={localMedia.filter((m) => !m.isCollage)}
           onCreated={onCollageCreated}
           onCancel={() => setShowCollageEditor(false)}
         />
@@ -589,11 +591,7 @@ function NewPost({
                     )}
                   >
                     <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
-                    {m.type === "VIDEO" && (
-                      <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
-                        🎬
-                      </span>
-                    )}
+                    {m.type === "VIDEO" && <VideoPlayBadge />}
                     {m.id === mediaId && (
                       <span className="absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
                         ✓

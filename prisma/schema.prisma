@@ -327,6 +327,9 @@ model MediaAsset {
   processingStatus    MediaProcessingStatus @default(PENDING)
   processingError     String?
   processingNote      String?
+  /// Gerada pela função de montagem em grade — não aparece como opção pra virar ingrediente de
+  /// OUTRA montagem (evita montagem dentro de montagem), mas continua publicável normalmente.
+  isCollage           Boolean               @default(false)
 
   // Versão melhorada para Reels (gerada pelo VideoProcessingService). Original nunca é apagado.
   enhancedStorageKey   String?

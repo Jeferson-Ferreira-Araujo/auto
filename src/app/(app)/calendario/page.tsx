@@ -51,7 +51,7 @@ export default async function CalendarioPage({
     }),
     prisma.mediaAsset.findMany({
       where: { organizationId: org.id, processingStatus: "READY", isActive: true },
-      select: { id: true, name: true, type: true, caption: true },
+      select: { id: true, name: true, type: true, caption: true, isCollage: true },
       orderBy: { createdAt: "desc" },
     }),
     listAudioTracks(org.id),
@@ -76,7 +76,13 @@ export default async function CalendarioPage({
     instagramMediaId: p.instagramMediaId,
   }));
 
-  const pickMedia: PickMedia[] = media.map((mm) => ({ id: mm.id, name: mm.name, type: mm.type, caption: mm.caption }));
+  const pickMedia: PickMedia[] = media.map((mm) => ({
+    id: mm.id,
+    name: mm.name,
+    type: mm.type,
+    caption: mm.caption,
+    isCollage: mm.isCollage,
+  }));
 
   return (
     <>

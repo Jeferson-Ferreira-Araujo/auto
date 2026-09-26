@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { MediaThumb } from "@/components/MediaThumb";
+import { MediaThumb, VideoPlayBadge } from "@/components/MediaThumb";
 import { cn } from "@/lib/utils";
 import { COLLAGE_LAYOUTS, type CollageLayout } from "@/lib/collage/layouts";
 import { createCollage } from "./collage-actions";
@@ -155,11 +155,7 @@ export function CollageEditor({
                 {chosen ? (
                   <div className="relative h-full w-full">
                     <MediaThumb id={chosen.id} type={chosen.type} variant="preview" className="h-full w-full object-cover" />
-                    {chosen.type === "VIDEO" && (
-                      <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
-                        🎬
-                      </span>
-                    )}
+                    {chosen.type === "VIDEO" && <VideoPlayBadge />}
                   </div>
                 ) : (
                   <button
@@ -206,11 +202,7 @@ export function CollageEditor({
                     )}
                   >
                     <MediaThumb id={m.id} type={m.type} className="h-full w-full object-cover" />
-                    {m.type === "VIDEO" && (
-                      <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">
-                        🎬
-                      </span>
-                    )}
+                    {m.type === "VIDEO" && <VideoPlayBadge />}
                   </button>
                 );
               })}

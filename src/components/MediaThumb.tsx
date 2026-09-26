@@ -37,3 +37,17 @@ export function MediaThumb({
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={mediaUrl(id, variant)} alt={alt} className={className} />;
 }
+
+/** Selo discreto de "isto é um vídeo" — um botão de play pequeno no canto, não algo que pareça
+ *  fazer parte do conteúdo da miniatura. Posicione com `className` (ex.: "bottom-1 right-1"). */
+export function VideoPlayBadge({ className = "bottom-1 right-1" }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none absolute flex h-5 w-5 items-center justify-center rounded-full bg-black/45 text-white ${className}`}
+    >
+      <svg width="7" height="8" viewBox="0 0 7 8" fill="currentColor" className="ml-[1px]">
+        <path d="M0 0L7 4L0 8Z" />
+      </svg>
+    </span>
+  );
+}

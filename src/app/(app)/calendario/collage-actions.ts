@@ -103,6 +103,7 @@ export const createCollage = orgAction(
       mimeType: "image/jpeg",
       originalName: `Montagem — ${layout.label}`,
       timezone: org.timezone,
+      isCollage: true,
     });
     if (asset.processingStatus !== "READY") {
       throw validation(asset.processingError ?? "Não foi possível preparar a montagem.");
