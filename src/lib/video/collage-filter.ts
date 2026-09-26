@@ -6,6 +6,11 @@ import type { CollageSlot } from "../collage/layouts";
  * `collage-actions.ts`). Função PURA (sem I/O, sem Prisma, sem alias `@/`) — usada pelo worker
  * do GitHub Actions.
  *
+ * Saída **vertical 9:16** (não quadrada): com vídeo no meio, o formato "automático" publica como
+ * Reel, e Reels são pensados pra tela cheia vertical — quadrado sobra com tarja preta em cima e
+ * embaixo. (A montagem só de fotos publica como Feed e continua QUADRADA de propósito — a Meta só
+ * aceita foto entre 4:5 e 1.91:1, um 9:16 seria rejeitado; ver `collage-actions.ts`.)
+ *
  * Cada espaço vira uma "tile" cortada (fit cover) do tamanho exato do slot; fotos ficam paradas
  * pela duração toda (`-loop 1`), vídeos mais curtos que o alvo repetem (`-stream_loop -1`) e o
  * resultado final é cortado em `targetDurationSec`. Sem áudio (mistura de fontes não tem como
@@ -14,7 +19,8 @@ import type { CollageSlot } from "../collage/layouts";
 
 export type CollageInput = { path: string; kind: "IMAGE" | "VIDEO" };
 
-const CANVAS_SIZE = 1080;
+const CANVAS_W = 1080;
+const CANVAS_H = 1920;
 const FPS = 30;
 const GAP = 10;
 
@@ -36,14 +42,14 @@ export function buildCollageArgs(
   const tileChains: string[] = [];
   const overlays: string[] = [];
   let prev = "bg0";
-  tileChains.push(`color=c=white:s=${CANVAS_SIZE}x${CANVAS_SIZE}:r=${FPS}:d=${targetDurationSec}[bg0];`);
+  tileChains.push(`color=c=white:s=${CANVAS_W}x${CANVAS_H}:r=${FPS}:d=${targetDurationSec}[bg0];`);
 
   for (let i = 0; i < slots.length; i++) {
     const s = slots[i];
-    const w = Math.max(2, Math.round(s.w * CANVAS_SIZE) - GAP);
-    const h = Math.max(2, Math.round(s.h * CANVAS_SIZE) - GAP);
-    const x = Math.round(s.x * CANVAS_SIZE) + Math.round(GAP / 2);
-    const y = Math.round(s.y * CANVAS_SIZE) + Math.round(GAP / 2);
+    const w = Math.max(2, Math.round(s.w * CANVAS_W) - GAP);
+    const h = Math.max(2, Math.round(s.h * CANVAS_H) - GAP);
+    const x = Math.round(s.x * CANVAS_W) + Math.round(GAP / 2);
+    const y = Math.round(s.y * CANVAS_H) + Math.round(GAP / 2);
 
     tileChains.push(
       `[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},` +
