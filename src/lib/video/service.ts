@@ -6,6 +6,7 @@ import { deleteObject } from "@/lib/storage/r2";
 import { autoPickPreset, type PresetName } from "./presets";
 import { dispatchWorker } from "./dispatch";
 import { requireFeatureEnabledRaw } from "@/lib/features-core";
+import { findCollageLayout } from "@/lib/collage/layouts";
 
 const log = childLogger({ mod: "video/service" });
 
@@ -133,6 +134,81 @@ export const VideoProcessingService = {
       await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
     }
     log.info({ jobId: job.id, clips: keys.length, dispatched }, "job de merge criado");
+    return { jobId: job.id, mediaAssetId: asset.id, status: job.status };
+  },
+
+  /**
+   * Cria um job de COLLAGE: monta uma grade (foto e/ou vídeo, na ordem dos espaços do layout)
+   * num único vídeo quadrado sem áudio. Cria um MediaAsset placeholder (PENDING) que o worker
+   * preenche ao concluir. Só chamado quando pelo menos um espaço é vídeo — grade só de fotos é
+   * síncrona (via `sharp`, ver `calendario/collage-actions.ts`).
+   */
+  async requestCollage(
+    organizationId: string,
+    input: {
+      layoutKey: string;
+      slots: { storageKey: string; kind: "IMAGE" | "VIDEO" }[];
+      name?: string | null;
+      timezone?: string;
+    },
+  ) {
+    await requireFeatureEnabledRaw("marketing_collage");
+    const layout = findCollageLayout(input.layoutKey);
+    if (!layout) throw validation("Layout de montagem inválido.");
+    if (input.slots.length !== layout.count) {
+      throw validation(`Este layout precisa de ${layout.count} espaços.`);
+    }
+    const prefix = `org/${organizationId}/`;
+    if (!input.slots.every((s) => s.storageKey.startsWith(prefix))) {
+      throw validation("Uma das mídias escolhidas é inválida.");
+    }
+
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
+    const count = await prisma.mediaAsset.count({ where: { organizationId } });
+    if (count >= org.mediaLimit) {
+      throw new AppError("RATE_LIMITED", `Limite de ${org.mediaLimit} mídias atingido para esta empresa.`);
+    }
+
+    const now = new Date();
+    const stamp = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: input.timezone ?? org.timezone,
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(now);
+
+    const asset = await prisma.mediaAsset.create({
+      data: {
+        organizationId,
+        type: "VIDEO",
+        name: input.name?.trim() || `Montagem — ${stamp}`,
+        storageKey: "",
+        mimeType: "video/mp4",
+        fileSize: 0,
+        processingStatus: "PENDING",
+        processingNote: "Montando a grade…",
+      },
+    });
+
+    const job = await prisma.videoJob.create({
+      data: {
+        organizationId,
+        mediaAssetId: asset.id,
+        kind: "COLLAGE",
+        inputStorageKeys: input.slots.map((s) => s.storageKey),
+        collageSlotKinds: input.slots.map((s) => s.kind),
+        collageLayoutKey: input.layoutKey,
+        status: "PENDING",
+      },
+    });
+    await prisma.mediaAsset.update({ where: { id: asset.id }, data: { activeVideoJobId: job.id } });
+
+    const dispatched = await dispatchWorker();
+    if (dispatched) {
+      await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
+    }
+    log.info({ jobId: job.id, slots: input.slots.length, dispatched }, "job de montagem (com vídeo) criado");
     return { jobId: job.id, mediaAssetId: asset.id, status: job.status };
   },
 

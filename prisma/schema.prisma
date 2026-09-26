@@ -109,6 +109,7 @@ enum VideoJobKind {
   MERGE
   WATERMARK
   ADD_MUSIC
+  COLLAGE
 }
 
 enum MusicMode {
@@ -639,6 +640,10 @@ model VideoJob {
   kind               VideoJobKind   @default(ENHANCE)
   preset             VideoPreset?
   inputStorageKeys   String[]       @default([])
+  /// Só para COLLAGE: tipo de cada entrada de `inputStorageKeys`, na mesma ordem ("IMAGE"|"VIDEO").
+  collageSlotKinds   String[]       @default([])
+  /// Só para COLLAGE: chave do layout em `src/lib/collage/layouts.ts`.
+  collageLayoutKey   String?
   autoMode           Boolean        @default(false)
   titleText          String?
   includeLogo        Boolean        @default(false)

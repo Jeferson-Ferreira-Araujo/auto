@@ -19,6 +19,8 @@ import { PRESETS, type PresetName, type VideoProbe } from "../../src/lib/video/p
 import { buildFfmpegArgs, buildThumbArgs } from "../../src/lib/video/filtergraph";
 import { buildMergeArgs } from "../../src/lib/video/merge";
 import { buildMusicArgs } from "../../src/lib/video/music-filter";
+import { buildCollageArgs } from "../../src/lib/video/collage-filter";
+import { findCollageLayout } from "../../src/lib/collage/layouts";
 import {
   buildWatermarkFilter,
   type WatermarkPosition,
@@ -26,6 +28,7 @@ import {
 } from "../../src/lib/media/watermark";
 
 const MAX_MERGE_DURATION_SEC = 15 * 60;
+const MAX_COLLAGE_DURATION_SEC = 3 * 60;
 
 const exec = promisify(execFile);
 const FONT = process.env.FFMPEG_FONT || "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
@@ -73,15 +76,17 @@ type Job = {
   organizationId: string;
   mediaAssetId: string;
   scheduledPostId: string | null;
-  kind: "ENHANCE" | "MERGE" | "WATERMARK" | "ADD_MUSIC";
+  kind: "ENHANCE" | "MERGE" | "WATERMARK" | "ADD_MUSIC" | "COLLAGE";
   preset: PresetName | null;
   inputStorageKeys: string[];
+  collageSlotKinds: string[];
+  collageLayoutKey: string | null;
   titleText: string | null;
   includeLogo: boolean;
   stripAudio: boolean;
 };
 
-/** Marca o job (e, no merge, o asset placeholder) como falho ou reenfileira. */
+/** Marca o job (e, no merge/collage, o asset placeholder) como falho ou reenfileira. */
 async function failJob(db: Client, job: Job, msg: string) {
   console.error(`✗ job ${job.id} falhou:`, msg.slice(0, 500));
   await db.query(
@@ -91,14 +96,16 @@ async function failJob(db: Client, job: Job, msg: string) {
      WHERE id = $1`,
     [job.id, msg.slice(0, 800)],
   );
-  if (job.kind === "MERGE") {
+  if (job.kind === "MERGE" || job.kind === "COLLAGE") {
+    const friendly =
+      job.kind === "MERGE" ? "Não foi possível juntar os vídeos. Tente novamente." : "Não foi possível montar a grade. Tente novamente.";
     await db.query(
       `UPDATE media_assets
          SET "processingStatus" = (CASE WHEN (SELECT attempts FROM video_jobs WHERE id = $1) >= 3
                                         THEN 'FAILED' ELSE 'PENDING' END)::"MediaProcessingStatus",
              "processingError" = $2, "updatedAt" = now()
        WHERE id = $3`,
-      [job.id, "Não foi possível juntar os vídeos. Tente novamente.", job.mediaAssetId],
+      [job.id, friendly, job.mediaAssetId],
     );
   }
 }
@@ -168,6 +175,86 @@ async function processMerge(db: Client, job: Job) {
       await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key })).catch(() => {});
     }
     console.log(`✓ merge ${job.id} concluído (${n} clipes, ${outProbe.durationSec.toFixed(1)}s)`);
+  } catch (err) {
+    await failJob(db, job, err instanceof Error ? err.message : String(err));
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
+/** Montagem em grade com pelo menos um vídeo entre os espaços (grade só de fotos usa `sharp`, ver collage-actions.ts). */
+async function processCollage(db: Client, job: Job) {
+  const work = await mkdtemp(join(tmpdir(), "collage-"));
+  const n = job.inputStorageKeys.length;
+  const inputs = job.inputStorageKeys.map((_, i) =>
+    join(work, `in${i}.${job.collageSlotKinds[i] === "VIDEO" ? "mp4" : "jpg"}`),
+  );
+  const outPath = join(work, "out.mp4");
+  const thumbPath = join(work, "thumb.jpg");
+  try {
+    if (n < 2) throw new Error("São necessários pelo menos 2 espaços.");
+    if (job.collageSlotKinds.length !== n) throw new Error("Lista de tipos não bate com os espaços.");
+    const layout = job.collageLayoutKey ? findCollageLayout(job.collageLayoutKey) : undefined;
+    if (!layout) throw new Error("Layout de montagem inválido.");
+    if (layout.slots.length !== n) throw new Error("Layout não bate com o número de espaços.");
+
+    await db.query(`UPDATE video_jobs SET progress = 10, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    for (let i = 0; i < n; i++) await download(job.inputStorageKeys[i], inputs[i]);
+
+    let maxVideoDur = 0;
+    for (let i = 0; i < n; i++) {
+      if (job.collageSlotKinds[i] !== "VIDEO") continue;
+      const pr = await ffprobe(inputs[i]);
+      if (pr.durationSec <= 0 || pr.width === 0) throw new Error("Um dos vídeos é inválido.");
+      maxVideoDur = Math.max(maxVideoDur, pr.durationSec);
+    }
+    const targetDurationSec = Math.min(Math.max(1, maxVideoDur || 5), MAX_COLLAGE_DURATION_SEC);
+
+    await db.query(`UPDATE video_jobs SET progress = 35, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    const collageInputs = inputs.map((path, i) => ({
+      path,
+      kind: job.collageSlotKinds[i] === "VIDEO" ? ("VIDEO" as const) : ("IMAGE" as const),
+    }));
+    try {
+      await exec(
+        "ffmpeg",
+        buildCollageArgs(collageInputs, layout.slots, targetDurationSec, outPath),
+        { maxBuffer: 1024 * 1024 * 32 },
+      );
+    } catch (e) {
+      const se = (e as { stderr?: string }).stderr ?? "";
+      throw new Error(`ffmpeg: ${se.split("\n").slice(-6).join(" | ").slice(0, 600)}`);
+    }
+
+    await db.query(`UPDATE video_jobs SET progress = 80, "updatedAt" = now() WHERE id = $1`, [job.id]);
+    await exec("ffmpeg", buildThumbArgs(outPath, thumbPath));
+
+    const outProbe = await ffprobe(outPath);
+    const resultKey = buildKey(job.organizationId, "media", "mp4");
+    const thumbKey = buildKey(job.organizationId, "thumb", "jpg");
+    await upload(resultKey, outPath, "video/mp4");
+    await upload(thumbKey, thumbPath, "image/jpeg");
+
+    const { size } = await stat(outPath);
+    await db.query(
+      `UPDATE media_assets
+         SET "storageKey" = $2, "processedStorageKey" = $2, "thumbnailKey" = $3,
+             "fileSize" = $4, width = $5, height = $6, duration = $7,
+             "processingStatus" = 'READY'::"MediaProcessingStatus", "processingError" = NULL,
+             "processingNote" = $8, "activeVideoJobId" = NULL, "updatedAt" = now()
+       WHERE id = $1`,
+      [job.mediaAssetId, resultKey, thumbKey, size, outProbe.width, outProbe.height, outProbe.durationSec,
+       `Montagem em grade com ${n} espaços (sem áudio).`],
+    );
+    await db.query(
+      `UPDATE video_jobs SET status='COMPLETED', progress=100, "completedAt"=now(), "updatedAt"=now(),
+         "resultStorageKey"=$2, "resultThumbnailKey"=$3, "resultDurationSec"=$4, "resultWidth"=$5, "resultHeight"=$6
+       WHERE id=$1`,
+      [job.id, resultKey, thumbKey, outProbe.durationSec, outProbe.width, outProbe.height],
+    );
+    // Não apaga inputStorageKeys aqui — ao contrário do MERGE, na COLLAGE eles são as mídias
+    // já existentes na biblioteca (não uploads descartáveis feitos só para este job).
+    console.log(`✓ collage ${job.id} concluído (${n} espaços, ${outProbe.durationSec.toFixed(1)}s)`);
   } catch (err) {
     await failJob(db, job, err instanceof Error ? err.message : String(err));
   } finally {
@@ -344,6 +431,7 @@ async function processJob(db: Client, job: Job) {
   if (job.kind === "MERGE") return processMerge(db, job);
   if (job.kind === "WATERMARK") return processWatermark(db, job);
   if (job.kind === "ADD_MUSIC") return processMusic(db, job);
+  if (job.kind === "COLLAGE") return processCollage(db, job);
   const work = await mkdtemp(join(tmpdir(), "vid-"));
   const inPath = join(work, "in.mp4");
   const outPath = join(work, "out.mp4");
@@ -441,7 +529,7 @@ async function main() {
            ORDER BY "createdAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
          )
          RETURNING id, "organizationId", "mediaAssetId", "scheduledPostId", kind, preset, "inputStorageKeys",
-                   "titleText", "includeLogo", "stripAudio"`,
+                   "collageSlotKinds", "collageLayoutKey", "titleText", "includeLogo", "stripAudio"`,
       );
       if (claimed.rows.length === 0) break;
       await processJob(db, claimed.rows[0]);

@@ -437,8 +437,8 @@ function NewPost({
     setCaption(m?.caption ?? "");
   }
 
-  function onCollageCreated(asset: { id: string; name: string }) {
-    setLocalMedia((cur) => [{ id: asset.id, name: asset.name, type: "IMAGE", caption: null }, ...cur]);
+  function onCollageCreated(asset: { id: string; name: string; type: "IMAGE" | "VIDEO" }) {
+    setLocalMedia((cur) => [{ id: asset.id, name: asset.name, type: asset.type, caption: null }, ...cur]);
     setMediaId(asset.id);
     setCaption("");
     setMediaTypeFilter("ALL");
@@ -534,7 +534,7 @@ function NewPost({
       )}
       {showCollageOption && showCollageEditor ? (
         <CollageEditor
-          images={localMedia.filter((m) => m.type === "IMAGE")}
+          media={localMedia}
           onCreated={onCollageCreated}
           onCancel={() => setShowCollageEditor(false)}
         />
