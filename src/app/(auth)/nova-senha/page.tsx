@@ -120,7 +120,7 @@ function NewPasswordForm() {
     return (
       <Card>
         <CardBody>
-          <h1 className="mb-2 text-lg font-semibold">Link inválido ou expirado</h1>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Link inválido ou expirado</h1>
           <p className="text-sm text-[var(--color-muted)]">
             Peça um novo link de redefinição de senha.
           </p>
@@ -138,7 +138,7 @@ function NewPasswordForm() {
     return (
       <Card>
         <CardBody>
-          <h1 className="mb-2 text-lg font-semibold">Senha alterada ✅</h1>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Senha alterada ✅</h1>
           <p className="text-sm text-[var(--color-muted)]">Entrando…</p>
         </CardBody>
       </Card>
@@ -148,7 +148,7 @@ function NewPasswordForm() {
   return (
     <Card>
       <CardBody>
-        <h1 className="mb-4 text-lg font-semibold">Criar nova senha</h1>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Criar nova senha</h1>
         <form onSubmit={onSubmit}>
           <Field label="Nova senha">
             <Input

@@ -51,7 +51,7 @@ export default function SignupPage() {
     return (
       <Card>
         <CardBody>
-          <h1 className="mb-2 text-lg font-semibold">Confirme seu e-mail</h1>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Confirme seu e-mail</h1>
           <p className="text-sm text-[var(--color-muted)]">
             Enviamos um link de confirmação para <strong>{email}</strong>. Abra o e-mail para ativar sua conta e continuar.
           </p>
@@ -63,7 +63,7 @@ export default function SignupPage() {
   return (
     <Card>
       <CardBody>
-        <h1 className="mb-4 text-lg font-semibold">Criar conta</h1>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Criar conta</h1>
         <form onSubmit={onSubmit}>
           <Field label="Seu nome">
             <Input required value={name} onChange={(e) => setName(e.target.value)} />

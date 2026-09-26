@@ -32,7 +32,7 @@ export default function RecoverPasswordPage() {
     return (
       <Card>
         <CardBody>
-          <h1 className="mb-2 text-lg font-semibold">Verifique seu e-mail</h1>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Verifique seu e-mail</h1>
           <p className="text-sm text-[var(--color-muted)]">
             Se existe uma conta com <strong>{email}</strong>, enviamos um link para redefinir a senha. O link vale por
             1 hora.
@@ -50,7 +50,7 @@ export default function RecoverPasswordPage() {
   return (
     <Card>
       <CardBody>
-        <h1 className="mb-1 text-lg font-semibold">Esqueci minha senha</h1>
+        <h1 className="mb-1 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Esqueci minha senha</h1>
         <p className="mb-4 text-sm text-[var(--color-muted)]">
           Informe seu e-mail e enviaremos um link para criar uma nova senha.
         </p>

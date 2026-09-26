@@ -41,7 +41,7 @@ function LoginForm() {
   return (
     <Card>
       <CardBody>
-        <h1 className="mb-4 text-lg font-semibold">Entrar</h1>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-[var(--color-heading)]">Entrar</h1>
         <form onSubmit={onSubmit}>
           <Field label="E-mail">
             <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
