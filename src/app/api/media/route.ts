@@ -50,6 +50,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(await presignGet(track.storageKey, 900), { status: 302 });
     }
 
+    const videoJobId = req.nextUrl.searchParams.get("videoJob");
+    if (videoJobId) {
+      const job = await prisma.videoJob.findFirst({
+        where: { id: videoJobId, organizationId: org.id },
+        select: { resultStorageKey: true },
+      });
+      if (!job?.resultStorageKey) throw notFound("Prévia indisponível");
+      return NextResponse.redirect(await presignGet(job.resultStorageKey, 900), { status: 302 });
+    }
+
     const id = req.nextUrl.searchParams.get("id");
     const variant = req.nextUrl.searchParams.get("variant") ?? "thumb";
     if (!id) throw validation("id ausente");

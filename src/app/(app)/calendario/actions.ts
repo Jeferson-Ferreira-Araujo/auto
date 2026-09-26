@@ -8,6 +8,25 @@ import { revalidateOrg } from "@/lib/cache";
 import { notFound, validation, conflict } from "@/lib/errors";
 import { manualScheduleSchema, updateScheduledPostSchema } from "@/lib/validation/schemas";
 import { createScheduledPost } from "@/lib/posts";
+import { VideoProcessingService } from "@/lib/video/service";
+
+/** Prévia da mídia com a trilha sonora já misturada, antes de agendar de verdade. */
+export const requestMusicPreview = orgAction(
+  z.object({
+    mediaAssetId: z.string().min(1),
+    musicTrackId: z.string().min(1),
+    musicMode: z.enum(["MIX", "MUSIC_ONLY"]),
+  }),
+  async (input, { org }) => {
+    const res = await VideoProcessingService.requestMusicPreview(
+      org.id,
+      input.mediaAssetId,
+      input.musicTrackId,
+      input.musicMode,
+    );
+    return res;
+  },
+);
 
 const EDITABLE = ["DRAFT", "SCHEDULED", "FAILED"] as const;
 

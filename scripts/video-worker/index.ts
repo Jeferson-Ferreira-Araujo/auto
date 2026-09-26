@@ -81,6 +81,8 @@ type Job = {
   inputStorageKeys: string[];
   collageSlotKinds: string[];
   collageLayoutKey: string | null;
+  musicTrackId: string | null;
+  musicMode: "MIX" | "MUSIC_ONLY" | null;
   titleText: string | null;
   includeLogo: boolean;
   stripAudio: boolean;
@@ -269,27 +271,45 @@ async function processMusic(db: Client, job: Job) {
   const outPath = join(work, "out.mp4");
   const thumbPath = join(work, "thumb.jpg");
   try {
-    if (!job.scheduledPostId) throw new Error("job ADD_MUSIC sem scheduledPostId");
-    const row = (
-      await db.query(
-        `SELECT
-           COALESCE(
-             CASE WHEN ma."watermarkEnabled" THEN ma."watermarkedStorageKey" END,
-             CASE WHEN ma."publishVariant" = 'ENHANCED' THEN ma."enhancedStorageKey" END,
-             ma."processedStorageKey",
-             ma."storageKey"
-           ) AS "sourceKey",
-           sp."musicMode",
-           at."storageKey" AS "audioKey"
-         FROM scheduled_posts sp
-         JOIN media_assets ma ON ma.id = sp."mediaAssetId"
-         JOIN audio_tracks at ON at.id = sp."musicTrackId"
-         WHERE sp.id = $1`,
-        [job.scheduledPostId],
-      )
-    ).rows[0];
+    const isPreview = !job.scheduledPostId;
+    const row = isPreview
+      ? (
+          await db.query(
+            `SELECT
+               COALESCE(
+                 CASE WHEN ma."watermarkEnabled" THEN ma."watermarkedStorageKey" END,
+                 CASE WHEN ma."publishVariant" = 'ENHANCED' THEN ma."enhancedStorageKey" END,
+                 ma."processedStorageKey",
+                 ma."storageKey"
+               ) AS "sourceKey",
+               at."storageKey" AS "audioKey"
+             FROM media_assets ma
+             JOIN audio_tracks at ON at.id = $2
+             WHERE ma.id = $1`,
+            [job.mediaAssetId, job.musicTrackId],
+          )
+        ).rows[0]
+      : (
+          await db.query(
+            `SELECT
+               COALESCE(
+                 CASE WHEN ma."watermarkEnabled" THEN ma."watermarkedStorageKey" END,
+                 CASE WHEN ma."publishVariant" = 'ENHANCED' THEN ma."enhancedStorageKey" END,
+                 ma."processedStorageKey",
+                 ma."storageKey"
+               ) AS "sourceKey",
+               sp."musicMode",
+               at."storageKey" AS "audioKey"
+             FROM scheduled_posts sp
+             JOIN media_assets ma ON ma.id = sp."mediaAssetId"
+             JOIN audio_tracks at ON at.id = sp."musicTrackId"
+             WHERE sp.id = $1`,
+            [job.scheduledPostId],
+          )
+        ).rows[0];
     if (!row?.sourceKey) throw new Error("vídeo-fonte não encontrado");
     if (!row.audioKey) throw new Error("faixa de áudio não definida");
+    const musicMode = isPreview ? job.musicMode : row.musicMode;
 
     await db.query(`UPDATE video_jobs SET progress = 15, "updatedAt" = now() WHERE id = $1`, [job.id]);
     await download(row.sourceKey, inPath);
@@ -302,7 +322,7 @@ async function processMusic(db: Client, job: Job) {
       videoPath: inPath,
       audioPath,
       outputPath: outPath,
-      mode: row.musicMode === "MUSIC_ONLY" ? "MUSIC_ONLY" : "MIX",
+      mode: musicMode === "MUSIC_ONLY" ? "MUSIC_ONLY" : "MIX",
       videoHasAudio: probe.hasAudio,
     });
 
@@ -323,10 +343,12 @@ async function processMusic(db: Client, job: Job) {
     await upload(resultKey, outPath, "video/mp4");
     await upload(thumbKey, thumbPath, "image/jpeg");
 
-    await db.query(
-      `UPDATE scheduled_posts SET "musicedStorageKey" = $2, "musicedThumbnailKey" = $3, "updatedAt" = now() WHERE id = $1`,
-      [job.scheduledPostId, resultKey, thumbKey],
-    );
+    if (!isPreview) {
+      await db.query(
+        `UPDATE scheduled_posts SET "musicedStorageKey" = $2, "musicedThumbnailKey" = $3, "updatedAt" = now() WHERE id = $1`,
+        [job.scheduledPostId, resultKey, thumbKey],
+      );
+    }
     await db.query(
       `UPDATE video_jobs SET status='COMPLETED', progress=100, "completedAt"=now(), "updatedAt"=now(),
          "resultStorageKey"=$2, "resultThumbnailKey"=$3, "resultDurationSec"=$4, "resultWidth"=$5, "resultHeight"=$6
@@ -529,7 +551,7 @@ async function main() {
            ORDER BY "createdAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
          )
          RETURNING id, "organizationId", "mediaAssetId", "scheduledPostId", kind, preset, "inputStorageKeys",
-                   "collageSlotKinds", "collageLayoutKey", "titleText", "includeLogo", "stripAudio"`,
+                   "collageSlotKinds", "collageLayoutKey", "musicTrackId", "musicMode", "titleText", "includeLogo", "stripAudio"`,
       );
       if (claimed.rows.length === 0) break;
       await processJob(db, claimed.rows[0]);

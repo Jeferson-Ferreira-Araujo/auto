@@ -34,6 +34,10 @@ export function audioTrackUrl(id: string): string {
   return `/api/media?audioTrack=${encodeURIComponent(id)}`;
 }
 
+export function videoJobPreviewUrl(jobId: string): string {
+  return `/api/media?videoJob=${encodeURIComponent(jobId)}`;
+}
+
 export function formatDateTime(d: Date | string, timeZone = "America/Sao_Paulo"): string {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone,

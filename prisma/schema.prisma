@@ -647,6 +647,9 @@ model VideoJob {
   collageSlotKinds   String[]       @default([])
   /// Só para COLLAGE: chave do layout em `src/lib/collage/layouts.ts`.
   collageLayoutKey   String?
+  /// Só para ADD_MUSIC sem `scheduledPostId` (prévia antes de agendar): trilha e modo escolhidos.
+  musicTrackId       String?
+  musicMode          MusicMode?
   autoMode           Boolean        @default(false)
   titleText          String?
   includeLogo        Boolean        @default(false)

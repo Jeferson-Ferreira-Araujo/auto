@@ -8,12 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Badge, Field, Select, Textarea } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, audioTrackUrl, formatTime, formatDateTime } from "@/lib/display";
+import {
+  POST_STATUS_LABEL,
+  POST_STATUS_TONE,
+  mediaUrl,
+  audioTrackUrl,
+  videoJobPreviewUrl,
+  formatTime,
+  formatDateTime,
+} from "@/lib/display";
 import { Icon } from "@/components/ui/icons";
 import { MediaThumb, VideoPlayBadge } from "@/components/MediaThumb";
 import { cn } from "@/lib/utils";
-import { cancelScheduledPost, createManualPost, updateScheduledPost } from "./actions";
+import { cancelScheduledPost, createManualPost, requestMusicPreview, updateScheduledPost } from "./actions";
 import { CollageEditor } from "./CollageEditor";
+import { getVideoJob } from "../biblioteca/video-actions";
 
 export type CalPost = {
   id: string;
@@ -454,6 +463,65 @@ function NewPost({
     previewTimerRef.current = setTimeout(stopPreview, 15_000); // só o trecho inicial
   }
 
+  type VideoPreviewState =
+    | { status: "idle" }
+    | { status: "processing" }
+    | { status: "ready"; url: string }
+    | { status: "error"; message: string };
+  const [videoPreview, setVideoPreview] = useState<VideoPreviewState>({ status: "idle" });
+  const previewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const previewGuardRef = useRef({ inFlight: false, cancelled: false });
+
+  function stopVideoPreviewPoll() {
+    if (previewPollRef.current) clearInterval(previewPollRef.current);
+    previewPollRef.current = null;
+  }
+
+  /** Troca de vídeo/faixa/modo invalida a prévia gerada antes (chamado pelos onChange). */
+  function resetVideoPreview() {
+    stopVideoPreviewPoll();
+    setVideoPreview({ status: "idle" });
+  }
+
+  useEffect(() => {
+    const guard = previewGuardRef.current;
+    guard.cancelled = false;
+    return () => {
+      guard.cancelled = true;
+      stopVideoPreviewPoll();
+    };
+  }, []);
+
+  async function startVideoPreview() {
+    if (!mediaId || !musicTrackId) return;
+    setVideoPreview({ status: "processing" });
+    const res = await requestMusicPreview({ mediaAssetId: mediaId, musicTrackId, musicMode });
+    if (!res.ok) {
+      setVideoPreview({ status: "error", message: res.error.message });
+      return;
+    }
+    const jobId = res.data.jobId;
+    stopVideoPreviewPoll();
+    previewPollRef.current = setInterval(async () => {
+      if (previewGuardRef.current.inFlight || previewGuardRef.current.cancelled) return;
+      previewGuardRef.current.inFlight = true;
+      const r = await getVideoJob({ jobId });
+      previewGuardRef.current.inFlight = false;
+      if (previewGuardRef.current.cancelled) return;
+      if (!r.ok) return;
+      if (r.data.status === "COMPLETED") {
+        stopVideoPreviewPoll();
+        setVideoPreview({ status: "ready", url: videoJobPreviewUrl(jobId) });
+      } else if (r.data.status === "FAILED") {
+        stopVideoPreviewPoll();
+        setVideoPreview({
+          status: "error",
+          message: r.data.errorMessage ?? "Não foi possível gerar a prévia.",
+        });
+      }
+    }, 2500);
+  }
+
   useEffect(() => stopPreview, []);
 
   function onMediaChange(id: string) {
@@ -461,6 +529,7 @@ function NewPost({
     setExtraIds((cur) => cur.filter((x) => x !== id));
     const m = localMedia.find((x) => x.id === id);
     setCaption(m?.caption ?? "");
+    resetVideoPreview();
   }
 
   function onCollageCreated(asset: { id: string; name: string; type: "IMAGE" | "VIDEO" }) {
@@ -675,7 +744,10 @@ function NewPost({
                 type="radio"
                 name="musicTrackId"
                 checked={musicTrackId === ""}
-                onChange={() => setMusicTrackId("")}
+                onChange={() => {
+                  setMusicTrackId("");
+                  resetVideoPreview();
+                }}
               />
               <span className="flex-1">Nenhuma — só o áudio original do vídeo</span>
             </label>
@@ -685,7 +757,10 @@ function NewPost({
                   type="radio"
                   name="musicTrackId"
                   checked={musicTrackId === t.id}
-                  onChange={() => setMusicTrackId(t.id)}
+                  onChange={() => {
+                    setMusicTrackId(t.id);
+                    resetVideoPreview();
+                  }}
                 />
                 <span className="flex-1 truncate">
                   {t.name}
@@ -716,7 +791,10 @@ function NewPost({
                   type="radio"
                   name="musicMode"
                   checked={musicMode === "MIX"}
-                  onChange={() => setMusicMode("MIX")}
+                  onChange={() => {
+                    setMusicMode("MIX");
+                    resetVideoPreview();
+                  }}
                   className="mt-0.5"
                 />
                 <span>
@@ -731,7 +809,10 @@ function NewPost({
                   type="radio"
                   name="musicMode"
                   checked={musicMode === "MUSIC_ONLY"}
-                  onChange={() => setMusicMode("MUSIC_ONLY")}
+                  onChange={() => {
+                    setMusicMode("MUSIC_ONLY");
+                    resetVideoPreview();
+                  }}
                   className="mt-0.5"
                 />
                 <span>
@@ -744,6 +825,21 @@ function NewPost({
             </div>
           )}
         </Field>
+      )}
+      {showMusic && musicTrackId && videoPreview.status !== "idle" && (
+        <div className="mb-4 overflow-hidden rounded-[var(--radius)] border bg-[var(--color-bg)] p-3">
+          {videoPreview.status === "processing" && (
+            <p className="text-sm text-[var(--color-muted)]">
+              Gerando prévia com a trilha sonora… pode levar até 1 minuto.
+            </p>
+          )}
+          {videoPreview.status === "ready" && (
+            <video src={videoPreview.url} controls autoPlay className="max-h-52 w-full rounded" />
+          )}
+          {videoPreview.status === "error" && (
+            <p className="text-sm text-[var(--color-danger)]">{videoPreview.message}</p>
+          )}
+        </div>
       )}
       <Field label="Data e hora">
         <input
@@ -763,7 +859,16 @@ function NewPost({
           Stories não têm legenda e somem em 24h. Vídeo de story: até 60s.
         </p>
       )}
-      <div className="mt-2 flex justify-end gap-2">
+      <div className="mt-2 flex items-center justify-end gap-2">
+        {showMusic && musicTrackId && (
+          <Button
+            variant="ghost"
+            onClick={startVideoPreview}
+            disabled={videoPreview.status === "processing"}
+          >
+            {videoPreview.status === "processing" ? "Gerando prévia…" : "Pré-visualizar com música"}
+          </Button>
+        )}
         <Button variant="ghost" onClick={onClose} disabled={pending}>
           Cancelar
         </Button>

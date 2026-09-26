@@ -288,6 +288,52 @@ export const VideoProcessingService = {
     return { jobId: job.id, status: job.status };
   },
 
+  /**
+   * Prévia da trilha sonora ANTES de agendar: mesmo job ADD_MUSIC, mas sem `scheduledPostId`
+   * (o worker lê a trilha/modo direto do job, não de uma publicação). O resultado fica só no
+   * `VideoJob` (não vira `MediaAsset` nem some na biblioteca) e a prévia anterior desta mídia é
+   * descartada a cada novo pedido, pra não acumular arquivo no R2.
+   */
+  async requestMusicPreview(
+    organizationId: string,
+    mediaAssetId: string,
+    musicTrackId: string,
+    musicMode: "MIX" | "MUSIC_ONLY",
+  ) {
+    await requireFeatureEnabledRaw("marketing_video_music");
+    const media = await prisma.mediaAsset.findFirst({ where: { id: mediaAssetId, organizationId } });
+    if (!media) throw notFound("Vídeo não encontrado");
+    if (media.type !== "VIDEO") throw validation("Trilha sonora é só para vídeo.");
+    const track = await prisma.audioTrack.findFirst({
+      where: { id: musicTrackId, active: true, OR: [{ organizationId: null }, { organizationId }] },
+    });
+    if (!track) throw notFound("Faixa não encontrada");
+
+    const previous = await prisma.videoJob.findMany({
+      where: { organizationId, mediaAssetId, kind: "ADD_MUSIC", scheduledPostId: null },
+    });
+    if (previous.length > 0) {
+      await prisma.videoJob.updateMany({
+        where: { id: { in: previous.map((p) => p.id) } },
+        data: { status: "FAILED", errorMessage: "Substituído por uma nova prévia." },
+      });
+      for (const p of previous) {
+        if (p.resultStorageKey) await deleteObject(p.resultStorageKey).catch(() => {});
+        if (p.resultThumbnailKey) await deleteObject(p.resultThumbnailKey).catch(() => {});
+      }
+    }
+
+    const job = await prisma.videoJob.create({
+      data: { organizationId, mediaAssetId, kind: "ADD_MUSIC", status: "PENDING", musicTrackId, musicMode },
+    });
+    const dispatched = await dispatchWorker();
+    if (dispatched) {
+      await prisma.videoJob.update({ where: { id: job.id }, data: { dispatchedAt: new Date() } });
+    }
+    log.info({ jobId: job.id, mediaAssetId, dispatched }, "prévia de trilha sonora criada");
+    return { jobId: job.id, status: job.status };
+  },
+
   /** Garante um job ADD_MUSIC pendente para a publicação (usado ao adiar). */
   async ensurePostMusicJob(scheduledPostId: string): Promise<"pending" | "failed"> {
     const open = await prisma.videoJob.findFirst({
