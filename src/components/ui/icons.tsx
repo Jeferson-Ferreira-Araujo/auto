@@ -169,6 +169,24 @@ export const Icon = {
       <path d="M4 5v14M8 5v14M12 5v14M16 5v14M20 5v14" />
     </P>
   ),
+  logout: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </P>
+  ),
+  play: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p} fill="currentColor" stroke="none">
+      <path d="M7 4.5v15l13-7.5Z" />
+    </P>
+  ),
+  pause: (p: SVGProps<SVGSVGElement>) => (
+    <P {...p} fill="currentColor" stroke="none">
+      <rect x="6" y="4.5" width="4.5" height="15" rx="1" />
+      <rect x="13.5" y="4.5" width="4.5" height="15" rx="1" />
+    </P>
+  ),
 };
 
 export type IconName = keyof typeof Icon;

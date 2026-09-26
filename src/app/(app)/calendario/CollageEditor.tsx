@@ -150,7 +150,7 @@ export function CollageEditor({
               <div
                 key={i}
                 className="absolute overflow-hidden"
-                style={{ left: `${s.x * 100}%`, top: `${s.y * 100}%`, width: `${s.w * 100}%`, height: `${s.h * 100}%`, padding: 2 }}
+                style={{ left: `${s.x * 100}%`, top: `${s.y * 100}%`, width: `${s.w * 100}%`, height: `${s.h * 100}%` }}
               >
                 {chosen ? (
                   <div className="relative h-full w-full">

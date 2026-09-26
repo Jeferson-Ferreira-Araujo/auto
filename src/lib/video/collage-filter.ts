@@ -22,7 +22,8 @@ export type CollageInput = { path: string; kind: "IMAGE" | "VIDEO" };
 const CANVAS_W = 1080;
 const CANVAS_H = 1920;
 const FPS = 30;
-const GAP = 10;
+/** Espaço entre os slots (0 = mídias coladas, sem faixa separando). */
+const GAP = 0;
 
 export function buildCollageArgs(
   inputs: CollageInput[],

@@ -40,6 +40,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(await presignGet(product.imageKey, 900), { status: 302 });
     }
 
+    const audioTrackId = req.nextUrl.searchParams.get("audioTrack");
+    if (audioTrackId) {
+      const track = await prisma.audioTrack.findFirst({
+        where: { id: audioTrackId, active: true, OR: [{ organizationId: null }, { organizationId: org.id }] },
+        select: { storageKey: true },
+      });
+      if (!track) throw notFound("Faixa não encontrada");
+      return NextResponse.redirect(await presignGet(track.storageKey, 900), { status: 302 });
+    }
+
     const id = req.nextUrl.searchParams.get("id");
     const variant = req.nextUrl.searchParams.get("variant") ?? "thumb";
     if (!id) throw validation("id ausente");

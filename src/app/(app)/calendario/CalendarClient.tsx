@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostSource, PostStatus, MediaType } from "@prisma/client";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge, Field, Select, Textarea } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, formatTime, formatDateTime } from "@/lib/display";
+import { POST_STATUS_LABEL, POST_STATUS_TONE, mediaUrl, audioTrackUrl, formatTime, formatDateTime } from "@/lib/display";
+import { Icon } from "@/components/ui/icons";
 import { MediaThumb, VideoPlayBadge } from "@/components/MediaThumb";
 import { cn } from "@/lib/utils";
 import { cancelScheduledPost, createManualPost, updateScheduledPost } from "./actions";
@@ -429,6 +430,31 @@ function NewPost({
   const [musicMode, setMusicMode] = useState<"MIX" | "MUSIC_ONLY">("MIX");
   const [mediaTypeFilter, setMediaTypeFilter] = useState<"ALL" | "IMAGE" | "VIDEO">("ALL");
   const [showCollageEditor, setShowCollageEditor] = useState(false);
+  const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function stopPreview() {
+    previewAudioRef.current?.pause();
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    setPreviewTrackId(null);
+  }
+
+  function togglePreview(id: string) {
+    if (previewTrackId === id) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    const audio = new Audio(audioTrackUrl(id));
+    previewAudioRef.current = audio;
+    audio.addEventListener("ended", stopPreview);
+    audio.play().catch(() => stopPreview());
+    setPreviewTrackId(id);
+    previewTimerRef.current = setTimeout(stopPreview, 15_000); // só o trecho inicial
+  }
+
+  useEffect(() => stopPreview, []);
 
   function onMediaChange(id: string) {
     setMediaId(id);
@@ -643,15 +669,46 @@ function NewPost({
           label="Trilha sonora"
           hint="Só para vídeo. A música é embutida no vídeo antes de publicar."
         >
-          <Select value={musicTrackId} onChange={(e) => setMusicTrackId(e.target.value)}>
-            <option value="">Nenhuma — só o áudio original do vídeo</option>
+          <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-[var(--radius)] border p-1.5">
+            <label className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-black/[0.03]">
+              <input
+                type="radio"
+                name="musicTrackId"
+                checked={musicTrackId === ""}
+                onChange={() => setMusicTrackId("")}
+              />
+              <span className="flex-1">Nenhuma — só o áudio original do vídeo</span>
+            </label>
             {audioTracks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-                {t.curated ? " (curada)" : ""}
-              </option>
+              <label key={t.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-black/[0.03]">
+                <input
+                  type="radio"
+                  name="musicTrackId"
+                  checked={musicTrackId === t.id}
+                  onChange={() => setMusicTrackId(t.id)}
+                />
+                <span className="flex-1 truncate">
+                  {t.name}
+                  {t.curated ? " (curada)" : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    togglePreview(t.id);
+                  }}
+                  aria-label={previewTrackId === t.id ? "Parar prévia da música" : "Ouvir prévia da música"}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
+                >
+                  {previewTrackId === t.id ? (
+                    <Icon.pause width={14} height={14} />
+                  ) : (
+                    <Icon.play width={14} height={14} />
+                  )}
+                </button>
+              </label>
             ))}
-          </Select>
+          </div>
           {musicTrackId && (
             <div className="mt-2 space-y-1 text-sm">
               <label className="flex items-start gap-2">

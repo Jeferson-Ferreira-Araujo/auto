@@ -16,8 +16,8 @@ import { VideoProcessingService } from "@/lib/video/service";
 
 /** Lado do canvas quadrado final (grade só de fotos), em px. Dentro do limite da Meta (1440). */
 const CANVAS_SIZE = 1440;
-/** Espaço branco entre as fotos, estilo grade do Instagram. */
-const GAP = 10;
+/** Espaço entre as fotos (0 = mídias coladas, sem faixa separando). */
+const GAP = 0;
 
 /**
  * Monta a grade. Se todos os espaços forem foto, compõe na hora (síncrono, `sharp`) e já volta

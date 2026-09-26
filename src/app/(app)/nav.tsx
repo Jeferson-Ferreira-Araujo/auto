@@ -309,12 +309,14 @@ export function Sidebar({
           </button>
           <form action={signOut}>
             <button
+              title={collapsed ? "Sair" : undefined}
               className={cn(
-                "w-full rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-sidebar-muted)] hover:bg-[var(--color-sidebar-hover)]",
-                collapsed && "text-center",
+                "flex w-full items-center gap-2 rounded-[var(--radius)] px-3 py-2 text-left text-sm text-[var(--color-sidebar-muted)] hover:bg-[var(--color-sidebar-hover)]",
+                collapsed && "justify-center px-2",
               )}
             >
-              {collapsed ? "⎋" : "Sair"}
+              <Icon.logout width={16} height={16} />
+              {!collapsed && "Sair"}
             </button>
           </form>
         </div>

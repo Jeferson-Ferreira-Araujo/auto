@@ -14,8 +14,26 @@ import {
   mediaKindLabel,
   type BestMedia,
 } from "@/lib/insights/report";
+import { formatEta, formatRelative } from "@/lib/display";
 import { MiniBars } from "./MiniBars";
 import { RangeTabs } from "./RangeTabs";
+
+/** O cron `sync-insights` roda a cada 3h (ver `.github/workflows/cron.yml`). */
+const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000;
+
+function SyncStatus({ syncedAt }: { syncedAt: Date | null }) {
+  if (!syncedAt) return null;
+  const nextAt = new Date(syncedAt.getTime() + SYNC_INTERVAL_MS);
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-muted)]">
+      <span>Atualizado {formatRelative(syncedAt)}</span>
+      <span aria-hidden>·</span>
+      <span>próxima atualização {formatEta(nextAt)}</span>
+      <span aria-hidden>·</span>
+      <SyncInsightsButton compact />
+    </div>
+  );
+}
 
 function DeltaChip({ pct }: { pct: number | null }) {
   const tone = deltaTone(pct);
@@ -75,11 +93,18 @@ export async function PerformanceView({
   sp: { range?: string; from?: string; to?: string };
 }) {
   const range = resolveRange(sp);
-  const report = await InstagramInsightsService.getReport(org.id, range);
+  const [report, account] = await Promise.all([
+    InstagramInsightsService.getReport(org.id, range),
+    prisma.instagramAccount.findUnique({
+      where: { organizationId: org.id },
+      select: { status: true, insightsError: true, insightsSyncedAt: true },
+    }),
+  ]);
 
   const header = (
     <>
       <PageHeader title="Desempenho" description={`Como o seu conteúdo foi nos ${range.label}`} />
+      {account?.insightsSyncedAt && <SyncStatus syncedAt={account.insightsSyncedAt} />}
       <Suspense fallback={null}>
         <RangeTabs />
       </Suspense>
@@ -87,10 +112,6 @@ export async function PerformanceView({
   );
 
   if (report.status === "not_connected") {
-    const account = await prisma.instagramAccount.findUnique({
-      where: { organizationId: org.id },
-      select: { status: true, insightsError: true, insightsSyncedAt: true },
-    });
     const connected = account?.status === "CONNECTED";
     const needsReconnect = insightsNeedsReconnect(account?.insightsError ?? null);
 
