@@ -9,8 +9,9 @@ name: keepalive
 # manda e-mail.
 
 on:
-  schedule:
-    - cron: "31 7 * * *" # 1x/dia (7 dias de folga na janela de suspensão)
+  # schedule: DESATIVADO (projeto Supabase pausado) — reativar ao restaurar
+  # schedule:
+#    - cron: "31 7 * * *" # 1x/dia (7 dias de folga na janela de suspensão)
   workflow_dispatch:
 
 permissions:

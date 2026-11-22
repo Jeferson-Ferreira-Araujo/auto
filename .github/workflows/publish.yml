@@ -9,8 +9,9 @@ name: publish
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/15 * * * *"
+  # schedule: DESATIVADO (projeto Supabase pausado) — reativar ao restaurar
+  # schedule:
+#    - cron: "*/15 * * * *"
 
 permissions:
   contents: read
@@ -55,7 +56,7 @@ jobs:
           done
           exit 0
       - name: Re-agenda o próximo ciclo
-        if: always()
+        if: false # DESATIVADO (projeto pausado) — era: always()
         env:
           GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         run: |
