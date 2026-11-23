@@ -1,0 +1,79 @@
+name: voice-transcribe
+
+# Worker de transcrição de notas de voz do WhatsApp (whisper.cpp local, sem API paga).
+# Disparado sob demanda pela app (repository_dispatch), com fallback agendado.
+
+on:
+  repository_dispatch:
+    types: [voice-transcribe]
+  # schedule: DESATIVADO (projeto pausado)
+  # schedule:
+  #  - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voice-transcribe
+  cancel-in-progress: false
+
+env:
+  # Sobe a versão pra forçar recompilar o whisper.cpp e rebaixar o modelo (limpa o cache).
+  WHISPER_CACHE_VERSION: v1
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install FFmpeg + build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg build-essential cmake
+          ffmpeg -version | head -1
+
+      - name: Cache whisper.cpp (binário compilado + modelo)
+        id: whisper-cache
+        uses: actions/cache@v4
+        with:
+          path: whisper.cpp
+          key: whisper-cpp-${{ env.WHISPER_CACHE_VERSION }}-${{ runner.os }}
+
+      - name: Build whisper.cpp + baixa modelo (só no cache miss)
+        if: steps.whisper-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git
+          cd whisper.cpp
+          cmake -B build
+          cmake --build build -j --config Release
+          sh ./models/download-ggml-model.sh base
+
+      - name: Confere o binário
+        run: |
+          test -f whisper.cpp/build/bin/whisper-cli
+          test -f whisper.cpp/models/ggml-base.bin
+          ./whisper.cpp/build/bin/whisper-cli --help | head -3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install worker deps
+        working-directory: scripts/voice-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Process pending transcriptions
+        working-directory: scripts/voice-worker
+        env:
+          WORKER_DB_URL: ${{ secrets.WORKER_DB_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          WHISPER_BIN: ${{ github.workspace }}/whisper.cpp/build/bin/whisper-cli
+          WHISPER_MODEL: ${{ github.workspace }}/whisper.cpp/models/ggml-base.bin
+        run: npx tsx index.ts

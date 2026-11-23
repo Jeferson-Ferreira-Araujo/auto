@@ -6,8 +6,9 @@ name: video-enhance
 on:
   repository_dispatch:
     types: [video-enhance]
-  schedule:
-    - cron: "*/15 * * * *"
+  # schedule: DESATIVADO (projeto pausado)
+  # schedule:
+  #  - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 permissions:
