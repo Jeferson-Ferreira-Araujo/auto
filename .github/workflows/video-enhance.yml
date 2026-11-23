@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   process:
+    if: false # PROJETO PAUSADO — remova esta linha para religar
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
